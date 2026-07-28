@@ -1,0 +1,4 @@
+interface:
+  display_name: "WebSockets"
+  short_description: "Deliver E-mrg dispatcher updates in real time."
+  default_prompt: "Add WebSocket updates to an E-mrg feature."

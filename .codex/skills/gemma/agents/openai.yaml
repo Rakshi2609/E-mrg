@@ -1,0 +1,4 @@
+interface:
+  display_name: "Gemma and Ollama"
+  short_description: "Integrate Gemma through Ollama safely."
+  default_prompt: "Implement Gemma and Ollama support for E-mrg."
