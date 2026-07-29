@@ -1,31 +1,22 @@
 import { MongoClient } from 'mongodb';
 
-// Connect to MongoDB and fetch records
+// Read both manually-created records and live AI incidents from the shared Mongo database.
 async function getRecords() {
-  const uri = process.env.MONGODB_URI || "mongodb://localhost:27017";
+  const uri = process.env.MONGODB_URI || "mongodb://localhost:27017/emergency_dispatcher";
   const client = new MongoClient(uri);
   try {
     await client.connect();
     const db = client.db('emergency_dispatcher');
-    const collection = db.collection('records');
-    
-    // Seed dummy data if empty
-    const count = await collection.countDocuments();
-    if (count === 0) {
-      const dummyRecords = [
-        { incident_id: "EMRG-2025-0415", type: "Medical Emergency", severity: "High", location: "123 Main St, Apt 4B", caller: "Jane Doe", phone: "+1 555-0198", timestamp: new Date(), status: "Resolved", summary: "Caller reported intense chest pain and shortness of breath. EMT dispatched immediately." },
-        { incident_id: "EMRG-2025-0416", type: "Structure Fire", severity: "Critical", location: "890 Oak Ave, Warehouse 3", caller: "John Smith", phone: "+1 555-0222", timestamp: new Date(Date.now() - 3600000), status: "Active", summary: "Large warehouse fire reported. 3 engines on scene. No known casualties yet." },
-        { incident_id: "EMRG-2025-0417", type: "Traffic Accident", severity: "Medium", location: "I-95 Northbound, Mile 42", caller: "Anonymous", phone: "+1 555-0888", timestamp: new Date(Date.now() - 7200000), status: "Resolved", summary: "Two car collision, minor injuries. Traffic cleared." },
-        { incident_id: "EMRG-2025-0418", type: "Disturbance", severity: "Low", location: "Central Park South", caller: "Mike T.", phone: "+1 555-0999", timestamp: new Date(Date.now() - 14400000), status: "Resolved", summary: "Noise complaint, officers resolved the issue." }
-      ];
-      await collection.insertMany(dummyRecords);
-    }
-    
-    const records = await collection.find({}).sort({ timestamp: -1 }).toArray();
-    return records.map(r => ({...r, _id: r._id.toString()})) as any[];
+    const [records, incidents] = await Promise.all([
+      db.collection('records').find({}).sort({ timestamp: -1 }).toArray(),
+      db.collection('incidents').find({}).sort({ updated_at: -1 }).toArray(),
+    ]);
+    const saved = records.map((record) => ({ ...record, _id: record._id.toString(), incident_id: String(record.incident_id ?? record.call_id), timestamp: record.timestamp ?? record.updated_at, type: record.type ?? record.incident_type ?? 'Unknown', severity: String(record.severity ?? 'unknown'), location: record.location ?? 'Not confirmed', status: record.status ?? record.dispatcher_status ?? 'Active', summary: record.summary ?? record.reply ?? '' }));
+    const live = incidents.map((incident) => ({ ...incident, _id: String(incident.call_id), incident_id: String(incident.call_id), timestamp: incident.updated_at, type: incident.incident_type ?? 'Unknown', severity: String(incident.severity ?? 'unknown'), location: incident.location ?? 'Not confirmed', status: incident.dispatcher_status === 'resolved' ? 'Resolved' : 'Active', summary: incident.summary ?? incident.reply ?? '' }));
+    return [...saved, ...live].sort((a, b) => new Date(String(b.timestamp)).getTime() - new Date(String(a.timestamp)).getTime());
   } catch (error) {
     console.error("MongoDB Error:", error);
-    return []; // Return empty if mongo fails
+    return [];
   } finally {
     await client.close();
   }

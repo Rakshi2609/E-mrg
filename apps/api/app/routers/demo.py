@@ -11,9 +11,11 @@ from app.services.call_event_store import CallEventStore
 router = APIRouter(prefix="/api/v1/demo", tags=["demo"])
 
 SAMPLE_INCIDENTS = (
-    ("DEMO-CALL-001", {"caller_number": "+1 555 010 1010"}, {"incident_type": "Medical", "severity": "high", "location": "42 Market Street", "victims": 1, "hazards": [], "ai_confidence": 0.94, "summary": "Caller reports chest pain; ambulance requested."}),
-    ("DEMO-CALL-002", {"caller_number": "+1 555 010 2020"}, {"incident_type": "Fire", "severity": "critical", "location": "8 River Road", "victims": 2, "hazards": ["smoke"], "ai_confidence": 0.97, "summary": "Kitchen fire with two people outside the building."}),
-    ("DEMO-CALL-003", {"caller_number": "+1 555 010 3030"}, {"incident_type": "Road traffic collision", "severity": "moderate", "location": "North Avenue and 3rd", "victims": 2, "hazards": ["traffic"], "ai_confidence": 0.89, "summary": "Two-car collision; occupants conscious and awaiting help."}),
+    ("DEMO-CALL-001", {"caller_number": "+1 555 010 1010"}, {"incident_type": "Medical", "severity": "high", "location": "42 Market Street", "victims": 1, "hazards": [], "ai_confidence": 0.94, "summary": "Caller reports chest pain; ambulance requested.", "latitude": 39.799, "longitude": -89.644}),
+    ("DEMO-CALL-002", {"caller_number": "+1 555 010 2020"}, {"incident_type": "Fire", "severity": "critical", "location": "8 River Road", "victims": 2, "hazards": ["smoke"], "ai_confidence": 0.97, "summary": "Kitchen fire with two people outside the building.", "latitude": 39.805, "longitude": -89.650}),
+    ("DEMO-CALL-003", {"caller_number": "+1 555 010 3030"}, {"incident_type": "Road traffic collision", "severity": "moderate", "location": "North Avenue and 3rd", "victims": 2, "hazards": ["traffic"], "ai_confidence": 0.89, "summary": "Two-car collision; occupants conscious and awaiting help.", "latitude": 39.790, "longitude": -89.660}),
+    ("DEMO-CALL-004", {"caller_number": "+1 555 010 4040"}, {"incident_type": "Water rescue", "severity": "high", "location": "Riverside Park Boat Ramp", "victims": 1, "hazards": ["water"], "ai_confidence": 0.92, "summary": "Person reported in distress near the boat ramp; rescue unit requested.", "latitude": 39.780, "longitude": -89.635}),
+    ("DEMO-CALL-005", {"caller_number": "+1 555 010 5050"}, {"incident_type": "Gas leak", "severity": "critical", "location": "500 Oak Street", "victims": 0, "hazards": ["gas"], "ai_confidence": 0.95, "summary": "Strong gas odor reported in an apartment building; evacuation requested.", "latitude": 39.812, "longitude": -89.658}),
 )
 
 

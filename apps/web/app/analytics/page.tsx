@@ -1,7 +1,17 @@
+'use client';
 import React from 'react';
+import { useLiveData } from '../../context/LiveDataContext';
 import { TrendingUp, Users, Clock, AlertTriangle, Activity, BarChart3, PieChart } from 'lucide-react';
 
 export default function AnalyticsPage() {
+  const { calls, incidents, logs } = useLiveData();
+  const critical = incidents.filter((incident) => ['CRITICAL', 'Critical', 'HIGH', 'High'].includes(incident.severity)).length;
+  const stats = [
+    { label: 'Total Calls', value: String(calls.length), change: 'MongoDB', up: true },
+    { label: 'Persisted Events', value: String(logs.length), change: 'Live', up: true },
+    { label: 'Critical Incidents', value: String(critical), change: 'Live', up: critical === 0 },
+    { label: 'Active Incidents', value: String(incidents.filter((incident) => incident.status === 'Active').length), change: 'Live', up: true },
+  ];
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', height: '100%', maxWidth: '1400px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -21,12 +31,7 @@ export default function AnalyticsPage() {
 
       {/* Top Stats Row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem' }}>
-        {[
-          { label: 'Total Calls', value: '1,482', change: '+12%', up: true, icon: <PhoneCall /> },
-          { label: 'Avg Response Time', value: '03:14', change: '-15%', up: true, icon: <Clock /> }, // Lower is better
-          { label: 'Critical Incidents', value: '42', change: '+5%', up: false, icon: <AlertTriangle /> },
-          { label: 'Active Dispatchers', value: '18', change: '0%', up: true, icon: <Users /> }
-        ].map((stat, i) => (
+        {stats.map((stat, i) => (
           <div key={i} style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
               <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{stat.label}</span>

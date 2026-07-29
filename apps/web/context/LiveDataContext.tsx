@@ -12,7 +12,7 @@ type Call = {
   summary: string;
   sequence: SequenceEvent[];
 };
-type Incident = { id: string; type: string; location: string; time: string; status: 'Active' | 'Dispatched' | 'Resolved'; severity: string; units: string[]; };
+type Incident = { id: string; type: string; location: string; time: string; status: 'Active' | 'Dispatched' | 'Resolved'; severity: string; units: string[]; latitude?: number; longitude?: number; };
 type Log = { id: string; time: string; user: string; action: string; resource: string; status: 'Success' | 'Failed'; };
 type Note = { id: string; title: string; content: string; author: string; date: string; color: string; };
 
@@ -115,7 +115,7 @@ export function LiveDataProvider({ children }: { children: React.ReactNode }) {
         if (!incidentEvent) return [];
         const item = payload(incidentEvent);
         const ended = callEvents.some((event) => event.event === 'call.ended');
-        return [{ id, type: String(item.incident_type ?? 'Unknown'), location: String(item.location ?? 'Not confirmed'), time: new Date(incidentEvent.occurred_at).toLocaleTimeString(), status: ended ? 'Resolved' : 'Active', severity: String(item.severity ?? 'unknown').toUpperCase(), units: [] }];
+        return [{ id, type: String(item.incident_type ?? 'Unknown'), location: String(item.location ?? 'Not confirmed'), time: new Date(incidentEvent.occurred_at).toLocaleTimeString(), status: ended ? 'Resolved' : 'Active', severity: String(item.severity ?? 'unknown').toUpperCase(), units: [], latitude: Number(item.latitude) || undefined, longitude: Number(item.longitude) || undefined }];
       });
       const nextLogs: Log[] = events.slice().reverse().map((event) => ({ id: event.event_id, time: new Date(event.occurred_at).toLocaleTimeString(), user: event.event.startsWith('ai.') ? 'AI Copilot' : 'System', action: event.event, resource: event.call_id, status: 'Success' }));
       if (!cancelled) { setCalls(nextCalls); setIncidents(nextIncidents); setLogs(nextLogs); }

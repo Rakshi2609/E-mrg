@@ -15,9 +15,8 @@ L.Icon.Default.mergeOptions({
 // Base coordinates (Springfield, IL mock)
 const baseCoords: [number, number] = [39.7817, -89.6501];
 // Pre-defined random offsets for variety
-const offsets = [
-  [0, 0], [0.01, 0.02], [-0.015, -0.01], [0.02, -0.02], [-0.02, 0.01]
-];
+const stations = [{ name: 'Springfield Central Station', position: [39.795, -89.650] as [number, number] }, { name: 'North Station', position: [39.820, -89.650] as [number, number] }, { name: 'Riverside Response Station', position: [39.780, -89.635] as [number, number] }];
+const nearestStation = (position: [number, number]): string => stations.reduce((nearest, station) => { const distance = Math.hypot(position[0] - station.position[0], position[1] - station.position[1]); return distance < nearest.distance ? { station, distance } : nearest; }, { station: stations[0], distance: Number.POSITIVE_INFINITY }).station.name;
 
 export default function MapComponent({ incidents, minimap = false, center = baseCoords }: { incidents: any[], minimap?: boolean, center?: [number, number] }) {
   return (
@@ -32,11 +31,10 @@ export default function MapComponent({ incidents, minimap = false, center = base
       >
         <TileLayer
           attribution={minimap ? '' : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}
-          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         {incidents.map((incident, idx) => {
-          const offset = minimap ? [0, 0] : offsets[idx % offsets.length];
-          const pos: [number, number] = [center[0] + offset[0], center[1] + offset[1]];
+          const pos: [number, number] = typeof incident.latitude === 'number' && typeof incident.longitude === 'number' ? [incident.latitude, incident.longitude] : center;
           return (
             <Marker key={incident.id} position={pos}>
               {!minimap && (
@@ -45,7 +43,7 @@ export default function MapComponent({ incidents, minimap = false, center = base
                     <div style={{ fontWeight: 800, color: 'var(--accent-red)' }}>{incident.id}</div>
                     <div style={{ fontWeight: 600 }}>{incident.type}</div>
                     <div style={{ fontSize: '0.8rem', color: '#666' }}>Severity: {incident.severity}</div>
-                    <div style={{ fontSize: '0.8rem', color: '#666' }}>Status: {incident.status}</div>
+                    <div style={{ fontSize: '0.8rem', color: '#666' }}>Status: {incident.status}</div><div style={{ fontSize: '0.8rem', color: '#666' }}>Nearest response station: {nearestStation(pos)}</div>
                   </div>
                 </Popup>
               )}
