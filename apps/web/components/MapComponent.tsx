@@ -3,6 +3,7 @@ import React from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { useEffect, useState } from 'react';
 
 // Fix leaflet default icon in Next.js
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -19,10 +20,26 @@ const stations = [{ name: 'Springfield Central Station', position: [39.795, -89.
 const nearestStation = (position: [number, number]): string => stations.reduce((nearest, station) => { const distance = Math.hypot(position[0] - station.position[0], position[1] - station.position[1]); return distance < nearest.distance ? { station, distance } : nearest; }, { station: stations[0], distance: Number.POSITIVE_INFINITY }).station.name;
 
 export default function MapComponent({ incidents, minimap = false, center = baseCoords }: { incidents: any[], minimap?: boolean, center?: [number, number] }) {
+  const [geocoded, setGeocoded] = useState<Record<string, [number, number]>>({});
+  useEffect(() => {
+    let cancelled = false;
+    const locations = incidents.filter((incident) => typeof incident.latitude !== 'number' && incident.location).slice(0, 20);
+    void Promise.all(locations.map(async (incident) => {
+      try {
+        const query = encodeURIComponent(`${incident.location}, India`);
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${query}`, { headers: { Accept: 'application/json' } });
+        const results = (await response.json()) as Array<{ lat: string; lon: string }>;
+        const match = results[0];
+        return match ? [incident.id, [Number(match.lat), Number(match.lon)] as [number, number]] as const : null;
+      } catch { return null; }
+    })).then((results) => { if (!cancelled) setGeocoded(Object.fromEntries(results.filter((result): result is readonly [string, [number, number]] => result !== null))); });
+    return () => { cancelled = true; };
+  }, [incidents]);
+  const mapCenter = Object.values(geocoded)[0] ?? (incidents.find((incident) => typeof incident.latitude === 'number') ? [incidents.find((incident) => typeof incident.latitude === 'number').latitude, incidents.find((incident) => typeof incident.longitude === 'number').longitude] as [number, number] : center);
   return (
     <div style={{ height: minimap ? '180px' : '600px', width: '100%', borderRadius: '12px', overflow: 'hidden', border: minimap ? 'none' : '1px solid var(--border-color)', position: 'relative', zIndex: 1 }}>
       <MapContainer 
-        center={center} 
+        center={mapCenter}
         zoom={minimap ? 15 : 13} 
         zoomControl={!minimap}
         scrollWheelZoom={!minimap}
@@ -34,7 +51,7 @@ export default function MapComponent({ incidents, minimap = false, center = base
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         {incidents.map((incident, idx) => {
-          const pos: [number, number] = typeof incident.latitude === 'number' && typeof incident.longitude === 'number' ? [incident.latitude, incident.longitude] : center;
+          const pos: [number, number] = typeof incident.latitude === 'number' && typeof incident.longitude === 'number' ? [incident.latitude, incident.longitude] : geocoded[incident.id] ?? mapCenter;
           return (
             <Marker key={incident.id} position={pos}>
               {!minimap && (
