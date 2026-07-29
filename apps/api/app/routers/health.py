@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
 from app.core.config import Settings
 from app.core.dependencies import settings_dependency
@@ -11,6 +11,9 @@ async def health(settings: Settings = Depends(settings_dependency)) -> dict[str,
     return {"status": "healthy", "service": settings.service_name, "version": "0.1.0"}
 
 
-@router.get("/health/ready")
-async def readiness(settings: Settings = Depends(settings_dependency)) -> dict[str, str]:
-    return {"status": "ready", "service": settings.service_name}
+@router.get("/health/ready", response_model=None)
+async def readiness(request: Request, settings: Settings = Depends(settings_dependency)) -> dict[str, str]:
+    database = getattr(request.app.state, "database", None)
+    connected = bool(database and await database.ping())
+    payload = {"status": "ready" if connected else "degraded", "service": settings.service_name, "database": "connected" if connected else "unavailable"}
+    return payload

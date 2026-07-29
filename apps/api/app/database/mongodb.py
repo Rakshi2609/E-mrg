@@ -1,7 +1,10 @@
 from collections.abc import Mapping
 from typing import Any, Protocol
+import asyncio
 
-from app.database.indexes import INDEX_SPECS, IndexSpec
+from pymongo import MongoClient
+
+from app.database.indexes import INDEX_SPECS
 
 
 class DatabaseClient(Protocol):
@@ -10,15 +13,26 @@ class DatabaseClient(Protocol):
 
 
 class MongoDatabase:
-    """Lifecycle boundary for MongoDB; connection wiring is injected later."""
+    """Small async-friendly lifecycle boundary around PyMongo."""
 
     def __init__(self, uri: str, database_name: str = "emergency_dispatcher") -> None:
         self.uri = uri
         self.database_name = database_name
         self._client: Any | None = None
 
+    async def connect(self) -> bool:
+        if self._client is None:
+            self._client = MongoClient(self.uri, serverSelectionTimeoutMS=2000)
+        return await self.ping()
+
     async def ping(self) -> bool:
-        return self._client is not None and bool(await self._client.admin.command("ping"))
+        if self._client is None:
+            return False
+        try:
+            result = await asyncio.to_thread(self._client.admin.command, "ping")
+            return bool(result.get("ok"))
+        except Exception:
+            return False
 
     async def close(self) -> None:
         if self._client is not None:

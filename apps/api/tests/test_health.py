@@ -21,4 +21,5 @@ def test_liveness_echoes_request_id() -> None:
 def test_readiness_is_available() -> None:
     response = client.get("/health/ready")
     assert response.status_code == 200
-    assert response.json()["status"] == "ready"
+    assert response.json()["status"] in {"ready", "degraded"}
+    assert response.json()["database"] in {"connected", "unavailable"}
