@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     mongodb_uri: str = "mongodb://localhost:27017/emergency_dispatcher"
     ollama_url: str = "http://localhost:11434"
     gemma_model: str = "gemma3"
+    ollama_timeout_seconds: float = 10.0
+    mistral_api_key: SecretStr | None = None
+    mistral_model: str = "mistral-small-latest"
     service_name: str = "emergency-ai-api"
     environment: str = "development"
     log_level: str = "INFO"

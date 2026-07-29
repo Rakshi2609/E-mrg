@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import Response
 
+from app.ai.fallback import TimeoutFallbackProvider
+from app.ai.mistral import MistralCloudProvider
 from app.ai.ollama import OllamaProvider
 from app.ai.orchestrator import AiOrchestrator
 from app.conversation.state_machine import ConversationStateMachine
@@ -9,16 +11,31 @@ from app.core.config import Settings
 from app.core.dependencies import settings_dependency
 from app.realtime.models import EventEnvelope
 from app.realtime.runtime import bus
+from app.services.call_event_store import CallEventStore
 from app.voice.security import validate_twilio_signature
 from app.voice.session import VoiceSessionStore
-from app.voice.twiml import greeting_twiml, response_with_gather
+from app.voice.twiml import greeting_twiml, handoff_twiml, response_with_gather
 
 router = APIRouter(prefix="/api/v1/twilio", tags=["twilio"])
 sessions = VoiceSessionStore()
+_HANDOFF_PHRASES = ("send ambulance", "send an ambulance", "send help", "dispatch", "end call", "goodbye")
 
 
-def orchestrator_dependency(settings: Settings = Depends(settings_dependency)) -> AiOrchestrator:
-    return AiOrchestrator(OllamaProvider(settings.ollama_url, settings.gemma_model))
+def handoff_requested(speech: str) -> bool:
+    normalized = speech.lower()
+    return any(phrase in normalized for phrase in _HANDOFF_PHRASES)
+
+
+def orchestrator_dependency(request: Request, settings: Settings = Depends(settings_dependency)) -> AiOrchestrator:
+    fallback = None
+    if settings.mistral_api_key is not None:
+        fallback = MistralCloudProvider(settings.mistral_api_key.get_secret_value(), settings.mistral_model)
+    provider = TimeoutFallbackProvider(
+        OllamaProvider(settings.ollama_url, settings.gemma_model),
+        fallback,
+        request.app.state.ollama_timeout_seconds,
+    )
+    return AiOrchestrator(provider)
 
 
 async def signed_form(request: Request, settings: Settings) -> dict[str, str]:
@@ -43,9 +60,18 @@ async def voice_webhook(
     speech = params.get("SpeechResult", "").strip()
     if not speech:
         return Response(greeting_twiml(), media_type="application/xml")
-    session = sessions.append(call_sid, speech)
-    await bus.publish(EventEnvelope(call_id=call_sid, event="transcript.updated", payload={"speaker": "caller", "message": speech}))
-    await bus.publish(EventEnvelope(call_id=call_sid, event="ai.status", payload={"status": "thinking"}))
+    session = sessions.append(call_sid, f"Caller: {speech}")
+    events = CallEventStore(request.app.state.database, bus)
+    await events.publish(EventEnvelope(call_id=call_sid, event="call.started", payload={"caller_number": params.get("From")}))
+    await events.publish(EventEnvelope(call_id=call_sid, event="transcript.updated", payload={"speaker": "caller", "message": speech}))
+    if handoff_requested(speech):
+        handoff_message = "I have recorded the information. A dispatcher will review it now. If anyone is in immediate danger, contact local emergency services."
+        sessions.append(call_sid, f"Assistant: {handoff_message}")
+        await events.publish(EventEnvelope(call_id=call_sid, event="transcript.updated", payload={"speaker": "assistant", "message": handoff_message}))
+        await events.publish(EventEnvelope(call_id=call_sid, event="ai.status", payload={"status": "handoff_requested"}))
+        await events.publish(EventEnvelope(call_id=call_sid, event="call.ended", payload={"reason": "caller_requested_handoff"}))
+        return Response(handoff_twiml(handoff_message), media_type="application/xml")
+    await events.publish(EventEnvelope(call_id=call_sid, event="ai.status", payload={"status": "thinking"}))
     try:
         result = await orchestrator.respond(session.transcript, session.state)
     except Exception:
@@ -63,9 +89,11 @@ async def voice_webhook(
                 missing_fields=["victims", "hazards"],
                 confidence=0.2,
             )
-    session.state = ConversationStateMachine().advance(session.state, result.missing_fields)
-    await bus.publish(EventEnvelope(call_id=call_sid, event="ai.status", payload={"status": "responded", "confidence": result.confidence}))
-    await bus.publish(EventEnvelope(call_id=call_sid, event="incident.updated", payload=result.model_dump(mode="json")))
+    session.state = ConversationStateMachine().advance(session.state, result.missing_fields, result)
+    sessions.append(call_sid, f"Assistant: {result.reply}")
+    await events.publish(EventEnvelope(call_id=call_sid, event="transcript.updated", payload={"speaker": "assistant", "message": result.reply}))
+    await events.publish(EventEnvelope(call_id=call_sid, event="ai.status", payload={"status": "responded", "confidence": result.confidence}))
+    await events.publish(EventEnvelope(call_id=call_sid, event="incident.updated", payload=result.model_dump(mode="json")))
     return Response(response_with_gather(result.reply), media_type="application/xml")
 
 

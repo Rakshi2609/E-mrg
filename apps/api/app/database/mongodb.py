@@ -39,6 +39,11 @@ class MongoDatabase:
             self._client.close()
             self._client = None
 
+    def collection(self, name: str) -> Any:
+        if self._client is None:
+            raise RuntimeError("MongoDB client is not connected")
+        return self._client[self.database_name][name]
+
     @staticmethod
     def index_documents() -> tuple[Mapping[str, object], ...]:
         return tuple({"collection": spec.collection, "keys": spec.keys, "unique": spec.unique} for spec in INDEX_SPECS)
