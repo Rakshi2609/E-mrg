@@ -1,11 +1,13 @@
 'use client';
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import type { EventEnvelope } from '@emergency-ai/contracts';
+import { connectDispatcherEvents } from '../lib/websocket';
 
 type TranscriptLine = { time: string; speaker: 'TARGET_CALLER' | 'COPILOT_SYS'; text: string; };
 type SequenceEvent = { id: string; time: string; title: string; isActive?: boolean; };
 
 type Call = { 
-  id: string; caller: string; phone: string; type: string; severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'; time: string; location: string; status: 'Active' | 'Queued' | 'Resolved'; 
+  id: string; caller: string; phone: string; type: string; severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'; time: string; location: string; status: 'Active' | 'Queued' | 'Resolved' | 'Ringing';
   transcript: TranscriptLine[];
   summary: string;
   sequence: SequenceEvent[];
@@ -66,7 +68,7 @@ const defaultNotes: Note[] = [
 const LiveDataContext = createContext<LiveDataContextType | undefined>(undefined);
 
 export function LiveDataProvider({ children }: { children: React.ReactNode }) {
-  const [calls, setCalls] = useState<Call[]>(defaultCalls);
+  const [calls, setCalls] = useState<Call[]>([]);
   const [incidents, setIncidents] = useState<Incident[]>(defaultIncidents);
   const [logs, setLogs] = useState<Log[]>(defaultLogs);
   const [notes, setNotes] = useState<Note[]>(defaultNotes);
@@ -85,26 +87,42 @@ export function LiveDataProvider({ children }: { children: React.ReactNode }) {
     setNotes(prev => [{ ...note, id: Math.random().toString(), date: new Date().toLocaleTimeString() }, ...prev]);
   };
 
-  // Simulate incoming data
+  const eventHistory = useRef<EventEnvelope[]>([]);
+
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (Math.random() > 0.7) {
-        const newCall: Call = {
-          id: `EMRG-2025-0${417 + Math.floor(Math.random()*100)}`,
-          caller: 'Unknown', phone: '+1 (555) 000-0000', type: 'Disturbance', severity: 'LOW', time: new Date().toLocaleTimeString(), location: 'Sector 7', status: 'Queued',
-          transcript: [
-            { time: new Date().toLocaleTimeString(), speaker: 'TARGET_CALLER', text: "There's a lot of noise coming from my neighbor's house." }
-          ],
-          summary: "Noise complaint / possible disturbance in Sector 7.",
-          sequence: [
-            { id: 'seq-1', time: 'T-00:00', title: 'Call Received' }
-          ]
-        };
-        setCalls(prev => [newCall, ...prev]);
-        setLogs(prev => [{ id: `AL-${Math.floor(Math.random()*1000)}`, time: new Date().toLocaleTimeString(), user: 'System', action: 'New Call Received', resource: newCall.id, status: 'Success' }, ...prev]);
-      }
-    }, 15000);
-    return () => clearInterval(interval);
+    let cancelled = false;
+    let socket: WebSocket | null = null;
+    const projectEvents = (events: EventEnvelope[]): void => {
+      eventHistory.current = events;
+      const grouped = new Map<string, EventEnvelope[]>();
+      events.forEach((event) => grouped.set(event.call_id, [...(grouped.get(event.call_id) ?? []), event]));
+      const payload = (event: EventEnvelope | undefined): Record<string, unknown> => (event?.payload ?? {}) as Record<string, unknown>;
+      const nextCalls: Call[] = [...grouped.entries()].map(([id, callEvents]) => {
+        const started = callEvents.find((event) => event.event === 'call.started');
+        const incident = [...callEvents].reverse().find((event) => event.event === 'incident.updated');
+        const ended = callEvents.some((event) => event.event === 'call.ended');
+        const start = payload(started);
+        const details = payload(incident);
+        const severity = String(details.severity ?? 'unknown').toUpperCase();
+        const transcript = callEvents.filter((event) => event.event === 'transcript.updated').map((event) => {
+          const item = payload(event);
+          return { time: new Date(event.occurred_at).toLocaleTimeString(), speaker: item.speaker === 'assistant' ? 'COPILOT_SYS' as const : 'TARGET_CALLER' as const, text: String(item.message ?? '') };
+        });
+        return { id, caller: 'Caller', phone: String(start.caller_number ?? 'Unknown'), type: String(details.incident_type ?? 'Collecting details'), severity: (['CRITICAL', 'HIGH', 'MEDIUM'].includes(severity) ? severity : 'LOW') as Call['severity'], time: started ? new Date(started.occurred_at).toLocaleTimeString() : '', location: String(details.location ?? 'Not confirmed'), status: ended ? 'Resolved' : 'Active', transcript, summary: String(details.summary ?? 'Incident details are being collected.'), sequence: callEvents.map((event) => ({ id: event.event_id, time: new Date(event.occurred_at).toLocaleTimeString(), title: event.event })) };
+      });
+      if (!cancelled) setCalls(nextCalls);
+    };
+    const connect = async (): Promise<void> => {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+      const login = await fetch(`${apiUrl}/api/v1/auth/dev-session`, { method: 'POST' });
+      if (!login.ok || cancelled) return;
+      const session = (await login.json()) as { token: string };
+      const history = await fetch(`${apiUrl}/api/v1/dashboard/events`, { headers: { Authorization: `Bearer ${session.token}` } });
+      if (history.ok) projectEvents((await history.json()) as EventEnvelope[]);
+      socket = connectDispatcherEvents(session.token, (event) => projectEvents([...eventHistory.current, event]));
+    };
+    void connect();
+    return () => { cancelled = true; socket?.close(); };
   }, []);
 
   return (

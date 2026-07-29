@@ -63,7 +63,7 @@ export default function CallQueuePage() {
                 </td>
                 <td style={{ padding: '1rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                    <div className="pulse-dot" style={{ width: 8, height: 8, borderRadius: '50%', background: call.status === 'Ringing' ? 'var(--accent-red)' : '#10b981' }}></div>
+                    <div className="pulse-dot" style={{ width: 8, height: 8, borderRadius: '50%', background: call.status === 'Active' ? 'var(--accent-red)' : '#10b981' }}></div>
                     {call.status}
                   </div>
                 </td>
