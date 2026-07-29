@@ -1,12 +1,22 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import Response
 
+from app.ai.ollama import OllamaProvider
+from app.ai.orchestrator import AiOrchestrator
+from app.conversation.state_machine import ConversationStateMachine
 from app.core.config import Settings
 from app.core.dependencies import settings_dependency
+from app.realtime.models import EventEnvelope
 from app.voice.security import validate_twilio_signature
-from app.voice.twiml import greeting_twiml
+from app.voice.session import VoiceSessionStore
+from app.voice.twiml import greeting_twiml, response_with_gather
 
 router = APIRouter(prefix="/api/v1/twilio", tags=["twilio"])
+sessions = VoiceSessionStore()
+
+
+def orchestrator_dependency(settings: Settings = Depends(settings_dependency)) -> AiOrchestrator:
+    return AiOrchestrator(OllamaProvider(settings.ollama_url, settings.gemma_model))
 
 
 async def signed_form(request: Request, settings: Settings) -> dict[str, str]:
@@ -19,9 +29,25 @@ async def signed_form(request: Request, settings: Settings) -> dict[str, str]:
 
 
 @router.post("/voice", response_class=Response)
-async def voice_webhook(request: Request, settings: Settings = Depends(settings_dependency)) -> Response:
-    await signed_form(request, settings)
-    return Response(greeting_twiml(), media_type="application/xml")
+async def voice_webhook(
+    request: Request,
+    settings: Settings = Depends(settings_dependency),
+    orchestrator: AiOrchestrator = Depends(orchestrator_dependency),
+) -> Response:
+    params = await signed_form(request, settings)
+    call_sid = params.get("CallSid")
+    if not call_sid:
+        raise HTTPException(status_code=422, detail="CallSid is required")
+    speech = params.get("SpeechResult", "").strip()
+    if not speech:
+        return Response(greeting_twiml(), media_type="application/xml")
+    session = sessions.append(call_sid, speech)
+    try:
+        result = await orchestrator.respond(session.transcript, session.state)
+    except Exception:
+        return Response(response_with_gather("I need to connect you with a dispatcher now."), media_type="application/xml")
+    session.state = ConversationStateMachine().advance(session.state, result.missing_fields)
+    return Response(response_with_gather(result.reply), media_type="application/xml")
 
 
 @router.post("/status", status_code=status.HTTP_204_NO_CONTENT)
