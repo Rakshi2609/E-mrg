@@ -1,10 +1,12 @@
 'use client';
-import React from 'react';
+import React, { useState } from 'react';
 import { AlertTriangle, MapPin, Clock, Users, ArrowRight } from 'lucide-react';
 import { useLiveData } from '../../context/LiveDataContext';
 
 export default function IncidentsPage() {
   const { incidents } = useLiveData();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = incidents.find((incident) => incident.id === selectedId);
 
 
   return (
@@ -59,13 +61,20 @@ export default function IncidentsPage() {
                   <div key={u} style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--bg-tertiary)', border: '2px solid var(--card-bg)', marginLeft: u > 0 ? '-8px' : '0' }}></div>
                 ))}
               </div>
-              <button style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+              <button onClick={() => setSelectedId(inc.id)} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
                 View Details <ArrowRight size={14} />
               </button>
             </div>
           </div>
         ))}
       </div>
+      {selected && <div role="dialog" aria-modal="true" style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }} onClick={() => setSelectedId(null)}>
+        <article onClick={(event) => event.stopPropagation()} style={{ background: 'var(--card-bg)', borderRadius: '16px', padding: '2rem', width: 'min(680px, 92vw)', maxHeight: '82vh', overflowY: 'auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}><div><h2 style={{ margin: 0 }}>{selected.type}</h2><p style={{ color: 'var(--text-muted)' }}>{selected.id}</p></div><button onClick={() => setSelectedId(null)} aria-label="Close details">Close</button></div>
+          <p>{selected.summary || 'No summary has been generated yet.'}</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}><div><strong>Location</strong><p>{selected.location}</p></div><div><strong>Status</strong><p>{selected.status}</p></div><div><strong>Severity</strong><p>{selected.severity}</p></div><div><strong>Victims</strong><p>{selected.victims ?? 'Unknown'}</p></div><div><strong>Hazards</strong><p>{selected.hazards?.join(', ') || 'None reported'}</p></div><div><strong>AI confidence</strong><p>{selected.confidence ? `${Math.round(selected.confidence * 100)}%` : 'Unknown'}</p></div></div>
+        </article>
+      </div>}
     </div>
   );
 }
