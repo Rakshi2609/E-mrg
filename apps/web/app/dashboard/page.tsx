@@ -62,9 +62,10 @@ function LiveCounter({ initial }: { initial: string }) {
 
 export default function DashboardOverview() {
   const [activeTab, setActiveTab] = useState('transcript');
+  const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
   const { calls, incidents } = useLiveData();
-  
-  const activeCall = calls.find(c => c.status === 'Active') || calls[0] || {
+  const prioritizedCalls = [...calls].sort((a, b) => Number(a.id.startsWith('DEMO-')) - Number(b.id.startsWith('DEMO-')));
+  const activeCall = prioritizedCalls.find(c => c.id === selectedCallId) || prioritizedCalls.find(c => c.status === 'Active') || prioritizedCalls[0] || {
     id: 'WAITING', caller: 'Waiting for caller', phone: '—', type: 'No active incident', severity: 'LOW' as const,
     time: '', location: 'Awaiting MongoDB events', status: 'Queued' as const, transcript: [],
     summary: 'The dashboard will populate when a real call event is received.', sequence: [],
@@ -88,6 +89,10 @@ export default function DashboardOverview() {
             <LiveClock />
           </div>
         </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.5rem' }} aria-label="Saved calls">
+        {prioritizedCalls.map((call) => <button key={call.id} onClick={() => setSelectedCallId(call.id)} style={{ padding: '0.5rem 0.75rem', borderRadius: '8px', border: call.id === activeCall.id ? '2px solid var(--accent-red)' : '1px solid var(--border-color)', background: 'var(--card-bg)', color: 'var(--text-primary)', cursor: 'pointer' }}>{call.id}{call.id.startsWith('DEMO-') ? ' (demo)' : ' (real)'}</button>)}
       </div>
 
       {/* Main 3 Column Grid */}
