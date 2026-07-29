@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     jwt_secret: SecretStr = SecretStr("development-only-secret-key-32-bytes")
     twilio_auth_token: str = "development-twilio-token"
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
 
 
 @lru_cache

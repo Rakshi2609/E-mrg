@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.auth.middleware import AuthenticationMiddleware
@@ -24,6 +25,13 @@ async def lifespan(_: FastAPI):
 configure_logging(settings.log_level)
 app = FastAPI(title="Emergency AI Dispatcher API", version="0.1.0", lifespan=lifespan)
 app.state.database = database
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Twilio-Signature"],
+)
 app.add_middleware(RequestContextMiddleware)
 app.add_middleware(AuthenticationMiddleware, settings=settings)
 app.include_router(health_router)
