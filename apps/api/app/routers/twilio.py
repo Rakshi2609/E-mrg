@@ -4,6 +4,7 @@ from fastapi.responses import Response
 from app.ai.ollama import OllamaProvider
 from app.ai.orchestrator import AiOrchestrator
 from app.conversation.state_machine import ConversationStateMachine
+from app.conversation.models import AiResponse
 from app.core.config import Settings
 from app.core.dependencies import settings_dependency
 from app.realtime.models import EventEnvelope
@@ -48,7 +49,20 @@ async def voice_webhook(
     try:
         result = await orchestrator.respond(session.transcript, session.state)
     except Exception:
-        return Response(response_with_gather("I need to connect you with a dispatcher now."), media_type="application/xml")
+        # Keep the emergency intake moving if a local model returns malformed JSON.
+        # The caller must never be abandoned because an optional AI provider failed.
+        if len(session.transcript) == 1:
+            result = AiResponse(
+                reply="Thank you. What is the exact location of the emergency?",
+                missing_fields=["location"],
+                confidence=0.2,
+            )
+        else:
+            result = AiResponse(
+                reply="Thank you. Are anyone injured, and are there any immediate hazards?",
+                missing_fields=["victims", "hazards"],
+                confidence=0.2,
+            )
     session.state = ConversationStateMachine().advance(session.state, result.missing_fields)
     await bus.publish(EventEnvelope(call_id=call_sid, event="ai.status", payload={"status": "responded", "confidence": result.confidence}))
     await bus.publish(EventEnvelope(call_id=call_sid, event="incident.updated", payload=result.model_dump(mode="json")))
