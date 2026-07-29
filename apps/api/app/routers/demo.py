@@ -27,7 +27,16 @@ async def seed_dashboard_samples(
     if current_settings.environment != "development":
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
     events = CallEventStore(request.app.state.database, bus)
+    demo_transcripts = {
+        "DEMO-CALL-001": (("caller", "My husband has severe chest pain."), ("assistant", "Is he conscious and breathing normally?")),
+        "DEMO-CALL-002": (("caller", "There is smoke coming from the kitchen."), ("assistant", "Are all occupants outside and accounted for?")),
+        "DEMO-CALL-003": (("caller", "Two cars have collided at the intersection."), ("assistant", "Are there any visible injuries or immediate hazards?")),
+        "DEMO-CALL-004": (("caller", "Someone is in trouble near the boat ramp."), ("assistant", "Can you point responders to your exact location?")),
+        "DEMO-CALL-005": (("caller", "There is a strong gas smell in the building."), ("assistant", "Please move outside immediately. Is anyone feeling unwell?")),
+    }
     for call_id, caller, incident in SAMPLE_INCIDENTS:
         await events.publish(EventEnvelope(call_id=call_id, event="call.started", payload=caller))
+        for speaker, message in demo_transcripts[call_id]:
+            await events.publish(EventEnvelope(call_id=call_id, event="transcript.updated", payload={"speaker": speaker, "message": message}))
         await events.publish(EventEnvelope(call_id=call_id, event="incident.updated", payload=incident))
-    return {"seeded_calls": len(SAMPLE_INCIDENTS)}
+    return {"seeded_calls": len(SAMPLE_INCIDENTS), "seeded_transcripts": len(SAMPLE_INCIDENTS) * 2}
