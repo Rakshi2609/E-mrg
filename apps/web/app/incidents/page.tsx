@@ -55,6 +55,7 @@ export default function IncidentsPage() {
               </div>
             </div>
 
+            <div style={{ background: 'var(--bg-secondary)', borderRadius: '8px', padding: '0.75rem', fontSize: '0.82rem', color: 'var(--text-secondary)' }}><strong>Latest transcript:</strong> {inc.transcript?.length ? `${inc.transcript.at(-1)?.speaker === 'COPILOT_SYS' ? 'AI' : 'Caller'}: ${inc.transcript.at(-1)?.text}` : 'No transcript captured yet.'}</div>
             <div style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', gap: '-10px' }}>
                 {inc.units.map((_, u) => (
