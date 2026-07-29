@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     environment: str = "development"
     log_level: str = "INFO"
     jwt_secret: SecretStr = SecretStr("development-only-secret-key-32-bytes")
+    twilio_auth_token: str = "development-twilio-token"
 
 
 @lru_cache
