@@ -69,9 +69,9 @@ const LiveDataContext = createContext<LiveDataContextType | undefined>(undefined
 
 export function LiveDataProvider({ children }: { children: React.ReactNode }) {
   const [calls, setCalls] = useState<Call[]>([]);
-  const [incidents, setIncidents] = useState<Incident[]>(defaultIncidents);
-  const [logs, setLogs] = useState<Log[]>(defaultLogs);
-  const [notes, setNotes] = useState<Note[]>(defaultNotes);
+  const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [logs, setLogs] = useState<Log[]>([]);
+  const [notes, setNotes] = useState<Note[]>([]);
 
   const dispatchUnit = (incidentId: string, unit: string) => {
     setIncidents(prev => prev.map(inc => inc.id === incidentId ? { ...inc, status: 'Dispatched', units: [...inc.units, unit] } : inc));
@@ -110,7 +110,15 @@ export function LiveDataProvider({ children }: { children: React.ReactNode }) {
         });
         return { id, caller: 'Caller', phone: String(start.caller_number ?? 'Unknown'), type: String(details.incident_type ?? 'Collecting details'), severity: (['CRITICAL', 'HIGH', 'MEDIUM'].includes(severity) ? severity : 'LOW') as Call['severity'], time: started ? new Date(started.occurred_at).toLocaleTimeString() : '', location: String(details.location ?? 'Not confirmed'), status: ended ? 'Resolved' : 'Active', transcript, summary: String(details.summary ?? 'Incident details are being collected.'), sequence: callEvents.map((event) => ({ id: event.event_id, time: new Date(event.occurred_at).toLocaleTimeString(), title: event.event })) };
       });
-      if (!cancelled) setCalls(nextCalls);
+      const nextIncidents: Incident[] = [...grouped.entries()].flatMap(([id, callEvents]) => {
+        const incidentEvent = [...callEvents].reverse().find((event) => event.event === 'incident.updated');
+        if (!incidentEvent) return [];
+        const item = payload(incidentEvent);
+        const ended = callEvents.some((event) => event.event === 'call.ended');
+        return [{ id, type: String(item.incident_type ?? 'Unknown'), location: String(item.location ?? 'Not confirmed'), time: new Date(incidentEvent.occurred_at).toLocaleTimeString(), status: ended ? 'Resolved' : 'Active', severity: String(item.severity ?? 'unknown').toUpperCase(), units: [] }];
+      });
+      const nextLogs: Log[] = events.slice().reverse().map((event) => ({ id: event.event_id, time: new Date(event.occurred_at).toLocaleTimeString(), user: event.event.startsWith('ai.') ? 'AI Copilot' : 'System', action: event.event, resource: event.call_id, status: 'Success' }));
+      if (!cancelled) { setCalls(nextCalls); setIncidents(nextIncidents); setLogs(nextLogs); }
     };
     const connect = async (): Promise<void> => {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
