@@ -64,7 +64,11 @@ export default function DashboardOverview() {
   const [activeTab, setActiveTab] = useState('transcript');
   const { calls, incidents } = useLiveData();
   
-  const activeCall = calls.find(c => c.status === 'Active') || calls[0];
+  const activeCall = calls.find(c => c.status === 'Active') || calls[0] || {
+    id: 'WAITING', caller: 'Waiting for caller', phone: '—', type: 'No active incident', severity: 'LOW' as const,
+    time: '', location: 'Awaiting MongoDB events', status: 'Queued' as const, transcript: [],
+    summary: 'The dashboard will populate when a real call event is received.', sequence: [],
+  };
 
   
   return (
