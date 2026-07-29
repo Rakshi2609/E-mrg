@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     service_name: str = "emergency-ai-api"
     environment: str = "development"
     log_level: str = "INFO"
-    jwt_secret: SecretStr = SecretStr("development-only-change-me")
+    jwt_secret: SecretStr = SecretStr("development-only-secret-key-32-bytes")
 
 
 @lru_cache
