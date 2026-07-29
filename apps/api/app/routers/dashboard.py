@@ -19,7 +19,7 @@ async def recent_dispatcher_events(
     collection = request.app.state.database.collection("dispatcher_events")
 
     def fetch_events() -> list[dict[str, object]]:
-        cursor = collection.find({"call_id": {"$not": {"$regex": "^DEMO-"}}}, {"_id": 0}).sort("occurred_at", -1).limit(limit)
+        cursor = collection.find({}, {"_id": 0}).sort("occurred_at", -1).limit(limit)
         return list(cursor)
 
     documents = await asyncio.to_thread(fetch_events)
