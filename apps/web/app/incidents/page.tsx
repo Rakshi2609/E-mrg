@@ -72,6 +72,8 @@ export default function IncidentsPage() {
         <article onClick={(event) => event.stopPropagation()} style={{ background: 'var(--card-bg)', borderRadius: '16px', padding: '2rem', width: 'min(680px, 92vw)', maxHeight: '82vh', overflowY: 'auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}><div><h2 style={{ margin: 0 }}>{selected.type}</h2><p style={{ color: 'var(--text-muted)' }}>{selected.id}</p></div><button onClick={() => setSelectedId(null)} aria-label="Close details">Close</button></div>
           <p>{selected.summary || 'No summary has been generated yet.'}</p>
+          <h3>Conversation transcript</h3>
+          {selected.transcript?.length ? <ol>{selected.transcript.map((line, index) => <li key={`${line.time}-${index}`}><strong>{line.speaker === 'COPILOT_SYS' ? 'AI' : 'Caller'}:</strong> {line.text} <small>{line.time}</small></li>)}</ol> : <p>No transcript captured for this incident.</p>}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}><div><strong>Location</strong><p>{selected.location}</p></div><div><strong>Status</strong><p>{selected.status}</p></div><div><strong>Severity</strong><p>{selected.severity}</p></div><div><strong>Victims</strong><p>{selected.victims ?? 'Unknown'}</p></div><div><strong>Hazards</strong><p>{selected.hazards?.join(', ') || 'None reported'}</p></div><div><strong>AI confidence</strong><p>{selected.confidence ? `${Math.round(selected.confidence * 100)}%` : 'Unknown'}</p></div></div>
         </article>
       </div>}

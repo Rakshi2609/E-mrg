@@ -5,6 +5,7 @@ import { TrendingUp, Users, Clock, AlertTriangle, Activity, BarChart3, PieChart 
 
 export default function AnalyticsPage() {
   const { calls, incidents, logs } = useLiveData();
+  const transcriptLines = calls.flatMap((call) => call.transcript.map((line) => ({ ...line, callId: call.id })));
   const critical = incidents.filter((incident) => ['CRITICAL', 'Critical', 'HIGH', 'High'].includes(incident.severity)).length;
   const stats = [
     { label: 'Total Calls', value: String(calls.length), change: 'MongoDB', up: true },
@@ -44,6 +45,8 @@ export default function AnalyticsPage() {
           </div>
         ))}
       </div>
+
+      <section style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1.5rem' }}><h3 style={{ marginTop: 0 }}>Recent conversation transcript</h3>{transcriptLines.length ? <ol>{transcriptLines.slice(-12).map((line, index) => <li key={`${line.callId}-${index}`}><strong>{line.callId} · {line.speaker === 'COPILOT_SYS' ? 'AI' : 'Caller'}:</strong> {line.text} <small>{line.time}</small></li>)}</ol> : <p>No persisted transcript events yet.</p>}</section>
 
       {/* Charts Row */}
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem', flex: 1 }}>
