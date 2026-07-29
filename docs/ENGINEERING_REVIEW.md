@@ -6,7 +6,7 @@ Emergency AI Dispatcher Copilot is a human-in-the-loop emergency call-intake sys
 
 The product goal is to reduce repetitive dispatcher intake work while keeping trained humans responsible for escalation and dispatch decisions. The AI collects location, incident type, victims, injuries, hazards, caller safety, and callback information; asks one high-value follow-up question at a time; preserves uncertainty; and transfers or flags the call when confidence is low. The planned deployment is a monorepo with a FastAPI backend, Next.js frontend, MongoDB Atlas, Twilio Voice/Media Streams, configurable STT/TTS providers, and Gemma served locally by Ollama. The roadmap progresses from repository and backend foundations through data, voice, conversation, AI, speech, dashboard, reporting, security, testing, and deployment.
 
-The architecture is appropriately modular for a hackathon prototype, but the documents do not yet define enough operational, safety, identity, data-contract, or failure semantics to support a real emergency service. The next implementation step should be contract clarification and a narrow, rehearsable demo slice—not broad autonomous dispatch behavior.
+The architecture is appropriately modular for a hackathon prototype, but the documents do not yet define enough operational, safety, identity, data-contract, or failure semantics to support a real emergency service. The next implementation step should be contract clarification and a narrow, rehearsable demo slice not broad autonomous dispatch behavior.
 
 ## 2 Architecture Validation
 
@@ -174,39 +174,39 @@ If the team chooses the simpler `backend/` and `frontend/` layout for the hackat
 
 ## 7 Development Plan
 
-### Phase 0 — Contract and safety baseline
+### Phase 0   Contract and safety baseline
 
 Dependencies: none. Resolve layout, canonical PRD, state/severity/event enums, field dictionary, authentication model, handoff semantics, and demo scope. Define contracts, threat model, golden AI fixtures, and data-retention decisions before implementation.
 
-### Phase 1 — Repository and backend foundation
+### Phase 1   Repository and backend foundation
 
 Dependencies: Phase 0. Create workspace, FastAPI app, configuration, structured logging, error envelope, health/readiness checks, dependency injection, CI, and local Docker Compose. Keep a working `/health` vertical slice.
 
-### Phase 2 — Database and durable call state
+### Phase 2   Database and durable call state
 
 Dependencies: Phase 1. Implement Pydantic/domain models, MongoDB repositories, indexes, validation, migrations/index bootstrap, call lifecycle, idempotency, bounded transcript segments, audit events, and outage tests.
 
-### Phase 3 — Voice ingress and provider adapters
+### Phase 3   Voice ingress and provider adapters
 
 Dependencies: Phases 1–2. Implement signed Twilio webhook, call status callbacks, media-stream lifecycle, STT/TTS interfaces, timeouts, interruption handling, and a deterministic mock provider. Prove a call can connect and persist partial state.
 
-### Phase 4 — Conversation engine and Gemma
+### Phase 4   Conversation engine and Gemma
 
 Dependencies: Phases 2–3. Implement explicit state machine, required-field policy, prompt builder, structured-output validator, confidence policy, safety guardrails, low-confidence handoff, Ollama health/model pinning, and golden conversation evaluation.
 
-### Phase 5 — Realtime eventing
+### Phase 5   Realtime eventing
 
 Dependencies: Phases 2–4. Implement versioned event envelope, authenticated subscriptions, sequence/replay, WebSocket reconnect, outbox/publication, and single-instance then broker-backed integration tests.
 
-### Phase 6 — Dispatcher dashboard
+### Phase 6   Dispatcher dashboard
 
 Dependencies: Phases 0, 2, and 5. Implement authentication, active-call queue, live call view, transcript, incident fields, AI status, severity/confidence labels, notes, loading/error/empty/offline states, accessibility, and contract validation.
 
-### Phase 7 — Reports, audit, and operational readiness
+### Phase 7   Reports, audit, and operational readiness
 
 Dependencies: Phases 2, 5, and 6. Add report generation/export authorization, audit trail, search/filter/history, metrics, traces, alerts, retention jobs, backup/restore procedure, and runbooks.
 
-### Phase 8 — Verification and demo deployment
+### Phase 8   Verification and demo deployment
 
 Dependencies: all prior phases. Run unit, contract, integration, E2E, adversarial AI, load, reconnect, security, accessibility, and failure-recovery tests. Deploy pinned builds, pre-warm Ollama, run end-to-end rehearsal, and verify fallback assets.
 
@@ -219,7 +219,7 @@ Dependencies: all prior phases. Run unit, contract, integration, E2E, adversaria
 - Validate at boundaries with Pydantic/Zod and revalidate provider output before domain mutation.
 - Centralize exception-to-error mapping, timeouts, retries, circuit breakers, and redaction.
 - Use structured logs and traces with stable identifiers; never include raw audio, full sensitive transcripts, tokens, or prompts by default.
-- Test state transitions, policies, repositories, provider adapters, API contracts, WebSocket replay, and complete scenarios—not only line coverage.
+- Test state transitions, policies, repositories, provider adapters, API contracts, WebSocket replay, and complete scenarios not only line coverage.
 - Keep configuration typed, environment-driven, validated at startup, and separated into public versus secret values.
 - Require focused commits, reproducible local setup, pinned provider/model versions, and documentation updates for contract changes.
 
