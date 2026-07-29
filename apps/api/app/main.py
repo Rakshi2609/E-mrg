@@ -11,6 +11,7 @@ from app.routers.ai_settings import router as ai_settings_router
 from app.routers.twilio import router as twilio_router
 from app.routers.websocket import router as websocket_router
 from app.routers.dispatcher_ws import router as dispatcher_ws_router
+from app.routers.dashboard import router as dashboard_router
 from app.routers.demo import router as demo_router
 from app.routers.health import router as health_router
 from app.database.mongodb import MongoDatabase
@@ -44,6 +45,7 @@ app.include_router(twilio_router)
 app.include_router(websocket_router)
 app.include_router(dispatcher_ws_router)
 app.include_router(demo_router)
+app.include_router(dashboard_router)
 
 
 @app.get("/health/live", tags=["health"])

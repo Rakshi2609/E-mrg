@@ -60,13 +60,13 @@ export function DispatcherDashboard() {
         window.sessionStorage.setItem("dispatcher_token", token);
       }
       if (!token || cancelled) return;
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+      const historyResponse = await fetch(`${apiUrl}/api/v1/dashboard/events`, { headers: { Authorization: `Bearer ${token}` } });
+      if (historyResponse.ok && !cancelled) {
+        setEvents((await historyResponse.json()) as EventEnvelope[]);
+      }
       socket = connectDispatcherEvents(token, (event) => setEvents((current) => [...current.slice(-99), event]));
-      socket.addEventListener("open", () => {
-        setConnected(true);
-        if (process.env.NODE_ENV === "development") {
-          void fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/v1/demo/seed`, { method: "POST" });
-        }
-      });
+      socket.addEventListener("open", () => setConnected(true));
       socket.addEventListener("close", () => setConnected(false));
     };
 
