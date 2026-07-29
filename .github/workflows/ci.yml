@@ -9,3 +9,8 @@ jobs:
         with: {node-version: 24, cache: npm}
       - run: npm ci
       - run: npm run check
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: python -m venv .venv
+      - run: .venv/bin/pip install -r apps/api/requirements-dev.txt
+      - run: PYTHONPATH=apps/api .venv/bin/pytest -q apps/api/tests
