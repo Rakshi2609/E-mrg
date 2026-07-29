@@ -7,6 +7,7 @@ from app.conversation.state_machine import ConversationStateMachine
 from app.core.config import Settings
 from app.core.dependencies import settings_dependency
 from app.realtime.models import EventEnvelope
+from app.realtime.runtime import bus
 from app.voice.security import validate_twilio_signature
 from app.voice.session import VoiceSessionStore
 from app.voice.twiml import greeting_twiml, response_with_gather
@@ -42,11 +43,15 @@ async def voice_webhook(
     if not speech:
         return Response(greeting_twiml(), media_type="application/xml")
     session = sessions.append(call_sid, speech)
+    await bus.publish(EventEnvelope(call_id=call_sid, event="transcript.updated", payload={"speaker": "caller", "message": speech}))
+    await bus.publish(EventEnvelope(call_id=call_sid, event="ai.status", payload={"status": "thinking"}))
     try:
         result = await orchestrator.respond(session.transcript, session.state)
     except Exception:
         return Response(response_with_gather("I need to connect you with a dispatcher now."), media_type="application/xml")
     session.state = ConversationStateMachine().advance(session.state, result.missing_fields)
+    await bus.publish(EventEnvelope(call_id=call_sid, event="ai.status", payload={"status": "responded", "confidence": result.confidence}))
+    await bus.publish(EventEnvelope(call_id=call_sid, event="incident.updated", payload=result.model_dump(mode="json")))
     return Response(response_with_gather(result.reply), media_type="application/xml")
 
 

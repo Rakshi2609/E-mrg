@@ -4,11 +4,10 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.auth.security import decode_access_token
 from app.core.config import settings
-from app.realtime.bus import EventBus
 from app.realtime.manager import ConnectionManager
 
 router = APIRouter(tags=["realtime"])
-bus = EventBus()
+from app.realtime.runtime import bus
 manager = ConnectionManager(bus)
 
 
