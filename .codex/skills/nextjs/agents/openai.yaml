@@ -1,0 +1,4 @@
+interface:
+  display_name: "Next.js Dashboard"
+  short_description: "Build the E-mrg dispatcher dashboard."
+  default_prompt: "Implement a Next.js dashboard feature for E-mrg."
