@@ -63,6 +63,7 @@ function LiveCounter({ initial }: { initial: string }) {
 export default function DashboardOverview() {
   const [activeTab, setActiveTab] = useState('transcript');
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
+  const [dispatchStatus, setDispatchStatus] = useState<string | null>(null);
   const { calls, incidents } = useLiveData();
   const prioritizedCalls = [...calls].sort((a, b) => Number(a.id.startsWith('DEMO-')) - Number(b.id.startsWith('DEMO-')));
   const activeCall = prioritizedCalls.find(c => c.id === selectedCallId) || prioritizedCalls.find(c => c.status === 'Active') || prioritizedCalls[0] || {
@@ -70,8 +71,15 @@ export default function DashboardOverview() {
     time: '', location: 'Awaiting MongoDB events', status: 'Queued' as const, transcript: [],
     summary: 'The dashboard will populate when a real call event is received.', sequence: [],
   };
+  const activeIncident = incidents.find((incident) => incident.id === activeCall.id);
+  const callDispatcher = async (): Promise<void> => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+    const login = await fetch(`${apiUrl}/api/v1/auth/dev-session`, { method: 'POST' });
+    const session = (await login.json()) as { token: string };
+    const response = await fetch(`${apiUrl}/api/v1/dispatch/call`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.token}` }, body: JSON.stringify({ incident_id: activeCall.id, incident_type: activeCall.type, severity: activeCall.severity, location: activeCall.location, victims: String(activeIncident?.victims ?? 'Unknown'), hazards: activeIncident?.hazards ?? [], summary: activeCall.summary }) });
+    setDispatchStatus(response.ok ? 'Dispatcher call started.' : 'Dispatcher call failed.');
+  };
 
-  
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', maxWidth: '1600px', margin: '0 auto' }}>
       
@@ -84,7 +92,7 @@ export default function DashboardOverview() {
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{activeCall.id}</span>
+          <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{activeCall.id}</span><button onClick={() => void callDispatcher()} style={{ background: 'var(--accent-red)', color: '#fff', border: 0, borderRadius: '8px', padding: '0.55rem 0.8rem', fontWeight: 700, cursor: 'pointer' }}>Call dispatcher</button>{dispatchStatus && <span role="status" style={{ color: 'var(--accent-red)', fontSize: '0.8rem' }}>{dispatchStatus}</span>}
           <div style={{ border: '1px solid #ef4444', color: 'var(--accent-red)', padding: '6px 12px', borderRadius: '8px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
             <LiveClock />
           </div>
