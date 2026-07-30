@@ -49,7 +49,7 @@ function CctvEvidencePanel({ incidentId, analyses }: { incidentId: string; analy
 
   return <section style={{ marginTop: '1.5rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-color)' }}>
     <h3 style={{ margin: '0 0 0.25rem' }}>CCTV evidence</h3>
-    <p style={{ margin: '0 0 1rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Mistral AI CCTV evidence — dispatcher verification required. Findings never change severity or dispatch automatically.</p>
+    <p style={{ margin: '0 0 1rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>AI CCTV evidence — dispatcher verification required. Findings never change severity or dispatch automatically.</p>
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '1rem' }}>
       {(['camera_1', 'camera_2'] as CameraId[]).map((cameraId, index) => <div key={cameraId} style={{ border: '1px solid var(--border-color)', borderRadius: '10px', overflow: 'hidden' }}>
         {images[cameraId] ? <img src={images[cameraId]} alt={`Camera ${index + 1} CCTV feed`} style={{ display: 'block', width: '100%', height: '140px', objectFit: 'cover' }} /> : <div style={{ height: '140px', display: 'grid', placeItems: 'center', background: 'var(--bg-secondary)', color: 'var(--text-muted)', fontSize: '0.8rem' }}>Loading camera…</div>}

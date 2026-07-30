@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Phone, User, Globe, MapPin, AlertTriangle, ShieldAlert,
   Users, Activity, Navigation, ExternalLink, Activity as Heart,
@@ -14,6 +14,58 @@ const DynamicMap = dynamic(() => import('../../components/MapComponent'), {
   ssr: false,
   loading: () => <div style={{ height: '180px', width: '100%', background: 'var(--bg-secondary)', borderRadius: '12px' }} />
 });
+
+type CameraId = 'camera_1' | 'camera_2';
+type DashboardEvidence = { id: string; cameraId: CameraId; cameraName: string; detectedSituation: string; urgency: string; confidence: number; hazards: string[]; recommendedResponse: string; };
+
+function DashboardCctvPanel({ incidentId, analyses }: { incidentId: string; analyses: DashboardEvidence[] }) {
+  const [images, setImages] = useState<Partial<Record<CameraId, string>>>({});
+  const [runningCamera, setRunningCamera] = useState<CameraId | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+
+  useEffect(() => {
+    let active = true;
+    const objectUrls: string[] = [];
+    void (async () => {
+      try {
+        const login = await fetch(`${apiUrl}/api/v1/auth/dev-session`, { method: 'POST' });
+        if (!login.ok) return;
+        const { token } = await login.json() as { token: string };
+        const previews = await Promise.all((['camera_1', 'camera_2'] as CameraId[]).map(async (cameraId) => {
+          const response = await fetch(`${apiUrl}/api/v1/incidents/${incidentId}/cctv/${cameraId}/image`, { headers: { Authorization: `Bearer ${token}` } });
+          if (!response.ok) return [cameraId, undefined] as const;
+          const url = URL.createObjectURL(await response.blob());
+          objectUrls.push(url);
+          return [cameraId, url] as const;
+        }));
+        if (active) setImages(Object.fromEntries(previews.filter((item): item is readonly [CameraId, string] => item[1] !== undefined)));
+      } catch { if (active) setMessage('Static camera previews are unavailable.'); }
+    })();
+    return () => { active = false; objectUrls.forEach((url) => URL.revokeObjectURL(url)); };
+  }, [apiUrl, incidentId]);
+
+  const analyze = async (cameraId: CameraId): Promise<void> => {
+    setRunningCamera(cameraId);
+    setMessage(null);
+    try {
+      const login = await fetch(`${apiUrl}/api/v1/auth/dev-session`, { method: 'POST' });
+      const { token } = await login.json() as { token: string };
+      const response = await fetch(`${apiUrl}/api/v1/incidents/${incidentId}/cctv/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ camera_id: cameraId }) });
+      if (!response.ok) throw new Error((await response.json() as { detail?: string }).detail ?? 'Analysis failed.');
+      setMessage('Analysis saved. Evidence updates live below.');
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Analysis failed.'); }
+    finally { setRunningCamera(null); }
+  };
+
+  return <article style={{ padding: '1.25rem' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}><h3 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0, letterSpacing: '0.05em', textTransform: 'uppercase' }}>CCTV evidence</h3><span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700 }}>STATIC FEEDS</span></div>
+    <p style={{ margin: '0 0 0.75rem', color: 'var(--text-secondary)', fontSize: '0.75rem' }}>AI evidence — dispatcher verification required.</p>
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>{(['camera_1', 'camera_2'] as CameraId[]).map((cameraId, index) => <div key={cameraId} style={{ border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden' }}>{images[cameraId] ? <img src={images[cameraId]} alt={`Static camera ${index + 1}`} style={{ width: '100%', height: '90px', objectFit: 'cover', display: 'block' }} /> : <div style={{ height: '90px', display: 'grid', placeItems: 'center', color: 'var(--text-muted)', fontSize: '0.7rem', background: 'var(--bg-secondary)' }}>Loading…</div>}<button onClick={() => void analyze(cameraId)} disabled={runningCamera !== null} style={{ width: '100%', padding: '0.45rem', border: 0, background: 'var(--accent-red)', color: '#fff', fontWeight: 700, cursor: runningCamera ? 'wait' : 'pointer' }}>{runningCamera === cameraId ? 'Analyzing…' : `Camera ${index + 1}`}</button></div>)}</div>
+    {message && <p role="status" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{message}</p>}
+    {analyses.length > 0 && <div style={{ marginTop: '0.75rem', display: 'grid', gap: '0.5rem' }}>{analyses.slice().reverse().map((analysis) => <div key={analysis.id} style={{ padding: '0.65rem', background: 'var(--bg-secondary)', borderRadius: '8px', fontSize: '0.75rem' }}><strong>{analysis.cameraName}: {analysis.detectedSituation}</strong><p style={{ margin: '0.3rem 0', color: 'var(--text-secondary)' }}>Hazards: {analysis.hazards.join(', ') || 'None observed'} · {Math.round(analysis.confidence * 100)}%</p><small style={{ color: 'var(--text-muted)' }}>{analysis.recommendedResponse}</small></div>)}</div>}
+  </article>;
+}
 
 function LiveClock() {
   const [time, setTime] = React.useState<Date | null>(null);
@@ -290,6 +342,8 @@ export default function DashboardOverview() {
             </div>
           </article>
 
+          {activeCall.id !== 'WAITING' && <DashboardCctvPanel incidentId={activeCall.id} analyses={activeIncident?.cctvAnalyses ?? []} />}
+
           <article style={{ padding: '1.25rem' }}>
             <h3 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '1.25rem', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Event Sequence</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', position: 'relative' }}>
@@ -331,4 +385,3 @@ export default function DashboardOverview() {
     </div>
   );
 }
-
