@@ -71,9 +71,9 @@ export default function IncidentsPage() {
                   <div key={u} style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--bg-tertiary)', border: '2px solid var(--card-bg)', marginLeft: u > 0 ? '-8px' : '0' }}></div>
                 ))}
               </div>
-              <button onClick={() => setSelectedId(inc.id)} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}><button onClick={() => setSelectedId(inc.id)} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
                 View Details <ArrowRight size={14} />
-              </button>
+              </button><button onClick={() => setSelectedId(inc.id)} style={{ background: 'var(--accent-red)', color: '#fff', border: 0, borderRadius: '6px', padding: '0.45rem 0.65rem', fontWeight: 700, cursor: 'pointer' }}>Dispatch this incident</button></div>
             </div>
           </div>
         ))}
