@@ -64,6 +64,7 @@ export default function DashboardOverview() {
   const [activeTab, setActiveTab] = useState('transcript');
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
   const [dispatchStatus, setDispatchStatus] = useState<string | null>(null);
+  const [selectedResource, setSelectedResource] = useState('Emergency Response Unit');
   const { calls, incidents } = useLiveData();
   const prioritizedCalls = [...calls].sort((a, b) => Number(a.id.startsWith('DEMO-')) - Number(b.id.startsWith('DEMO-')));
   const activeCall = prioritizedCalls.find(c => c.id === selectedCallId) || prioritizedCalls.find(c => c.status === 'Active') || prioritizedCalls[0] || {
@@ -76,7 +77,7 @@ export default function DashboardOverview() {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
     const login = await fetch(`${apiUrl}/api/v1/auth/dev-session`, { method: 'POST' });
     const session = (await login.json()) as { token: string };
-    const response = await fetch(`${apiUrl}/api/v1/dispatch/call`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.token}` }, body: JSON.stringify({ incident_id: activeCall.id, incident_type: activeCall.type, severity: activeCall.severity, location: activeCall.location, victims: String(activeIncident?.victims ?? 'Unknown'), hazards: activeIncident?.hazards ?? [], summary: activeCall.summary }) });
+    const response = await fetch(`${apiUrl}/api/v1/dispatch/call`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.token}` }, body: JSON.stringify({ incident_id: activeCall.id, incident_type: activeCall.type, severity: activeCall.severity, location: activeCall.location, victims: String(activeIncident?.victims ?? 'Unknown'), hazards: activeIncident?.hazards ?? [], summary: activeCall.summary, resource: selectedResource }) });
     setDispatchStatus(response.ok ? 'Dispatcher call started.' : 'Dispatcher call failed.');
   };
 
@@ -139,6 +140,8 @@ export default function DashboardOverview() {
 
           {/* Call Overview */}
           <article style={{ padding: '1.5rem' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '1.25rem', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Dispatch resources</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '1.25rem' }}>{['Ambulance / EMS', 'Fire Brigade', 'Police', 'Emergency Response Unit'].map((resource) => <button key={resource} onClick={() => setSelectedResource(resource)} style={{ padding: '0.65rem', borderRadius: '8px', border: selectedResource === resource ? '2px solid var(--accent-red)' : '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontWeight: 700, cursor: 'pointer' }}>{resource}</button>)}</div>
             <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '1.25rem', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Threat Matrix</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)', padding: '0.75rem 1rem', borderRadius: '8px' }}>

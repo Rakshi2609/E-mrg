@@ -20,6 +20,7 @@ class DispatchRequest(BaseModel):
     victims: str = "Unknown"
     hazards: list[str] = Field(default_factory=list)
     summary: str = ""
+    resource: str = "Emergency Response Unit"
 
 @router.post("/call")
 async def call_dispatcher(
@@ -30,7 +31,7 @@ async def call_dispatcher(
 ) -> dict[str, str]:
     if not settings.twilio_account_sid or not settings.twilio_phone_number:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Twilio sender is not configured")
-    message = (f"Emergency incident for {payload.incident_id}. Type: {payload.incident_type}. "
+    message = (f"Dispatch resource: {payload.resource}. Emergency incident for {payload.incident_id}. Type: {payload.incident_type}. "
         f"Severity: {payload.severity}. Location: {payload.location}. Victims: {payload.victims}. "
         f"Hazards: {', '.join(payload.hazards) or 'none reported'}. "
         f"Summary: {payload.summary or 'See the dashboard for details.'}. "
