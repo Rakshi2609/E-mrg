@@ -1,107 +1,157 @@
 # E-mrg: Next-Generation Emergency Response AI Platform
 
-E-mrg is a highly scalable, AI-driven emergency response and dispatch orchestration platform. Engineered to mitigate cognitive overload for emergency dispatchers, E-mrg leverages real-time natural language processing (NLP), automatic speech recognition (ASR), and edge-based computer vision pipelines to drastically reduce emergency response latencies and optimize resource allocation.
+E-mrg is a highly scalable, multi-modal, AI-driven emergency response and dispatch orchestration platform. Engineered to mitigate cognitive overload for emergency dispatchers, E-mrg leverages real-time Natural Language Processing (NLP), Automatic Speech Recognition (ASR), and Edge-Based Computer Vision pipelines to drastically reduce emergency response latencies and mathematically optimize resource allocation.
 
 ## The Problem: Cognitive Overload & Latency in Emergency Dispatch
 
-Modern public safety answering points (PSAPs) are hindered by sequential, manual workflows. When a distress call is received, a human dispatcher must perform a complex set of synchronous tasks under extreme psychological stress:
-1. **Auditory Processing:** Listen to panicked, often incoherent callers.
-2. **Data Transcription:** Manually type critical details (address, nature of emergency, victim count).
-3. **Information Retrieval:** Cross-reference caller data with city maps and unit availability.
+Modern Public Safety Answering Points (PSAPs) are hindered by sequential, manual, and high-latency workflows. When a distress call is received, a human dispatcher must perform a complex set of synchronous computational tasks under extreme psychological stress:
+1. **Auditory Processing:** Parse panicked, often incoherent or multi-lingual callers.
+2. **Data Transcription:** Manually type critical incident telemetry (address, nature of emergency, victim count).
+3. **Information Retrieval (IR):** Cross-reference caller data with city maps and real-time unit availability.
 4. **Decision Making:** Determine the appropriate response protocol and dispatch required units.
 
-**The Bottleneck:** The average 911/112 call takes between 60 to 120 seconds to process before units are dispatched. Furthermore, studies indicate a 30% increase in critical data omission during high-volume periods due to dispatcher fatigue. The lack of real-time visual context often leads to over-dispatching (wasting resources) or under-dispatching (endangering lives).
+**The Bottleneck:** The average 911/112 call requires between 60 to 120 seconds of processing before units are dispatched. Furthermore, studies indicate a 30% increase in critical data omission during high-volume periods due to dispatcher fatigue. The lack of real-time visual context often leads to over-dispatching (wasting resources) or under-dispatching (endangering lives).
 
-## The E-mrg Solution
+## The E-mrg Solution: Event-Driven Multi-Modal Orchestration
 
-E-mrg eliminates these bottlenecks by introducing an **Autonomous AI Copilot** and an **Intelligent Aggregation Dashboard**. By running inference in parallel with the ongoing emergency call, E-mrg shifts the dispatcher's role from data-entry clerk to strategic commander.
+E-mrg eliminates these bottlenecks by introducing an **Autonomous AI Copilot** and an **Intelligent Aggregation Dashboard**. By running Distributed Inference in parallel with the ongoing emergency call, E-mrg shifts the dispatcher's role from data-entry clerk to strategic commander.
 
 ### Key Value Propositions
-- **Sub-Second Transcription:** Automated Speech Recognition (ASR) converts audio streams to text with <500ms latency, creating an immutable, searchable record.
-- **Predictive Triage:** Large Language Models (LLMs) execute continuous Named Entity Recognition (NER) to extract structured data (Location, Hazards, Victims) in real-time.
-- **Contextual Vision:** Integration with regional CCTV networks allows Computer Vision models to autonomously verify incidents before units arrive, effectively solving the "blind dispatch" problem.
-- **Dynamic Resource Orchestration:** Algorithmic routing maps incident severity to nearest available unit vectors, reducing deployment decision time from minutes to milliseconds.
+- **Sub-Second Streaming Transcription:** Automated Speech Recognition (ASR) converts audio streams to text with <500ms latency, creating an immutable, searchable semantic record.
+- **Predictive Triage & Intent Recognition:** Large Language Models (LLMs) execute continuous Named Entity Recognition (NER) and Sentiment Analysis to extract structured data (Location, Hazards, Victims) in real-time.
+- **Contextual Vision via Edge Computing:** Integration with regional CCTV networks allows Computer Vision models to autonomously verify incidents before units arrive, effectively solving the "blind dispatch" problem.
+- **Dynamic Resource Routing:** Algorithmic routing algorithms map incident severity to the nearest available unit vectors, reducing deployment decision time from minutes to milliseconds.
 
 ---
 
-## Architectural Overview
+## Comprehensive System Architecture
 
-At its core, E-mrg utilizes a decoupled microservices architecture with a Next.js (React 19) frontend and a high-performance Python FastAPI backend. Bi-directional WebSocket communication ensures state synchronization between caller inputs, AI inference engines, and the dispatcher dashboard.
+At its core, E-mrg utilizes a Decoupled Microservices Architecture with a Next.js (React 19) frontend and a high-performance Python FastAPI backend. Bi-directional WebSocket communication ensures low-latency state synchronization between caller inputs, AI inference engines, and the dispatcher dashboard.
 
-The inference layer integrates Large Language Models and advanced speech-to-text models for real-time transcription, automated incident summarization, and dynamic triage classification. Concurrently, a computer vision pipeline ingests real-time CCTV streams to execute object detection and hazard classification (e.g., detecting fire, estimating vehicle collisions) at the edge, providing deterministic verification of caller claims.
+### 1. High-Level Macro Architecture Flow
 
-### System Architecture Flow
+This diagram illustrates the separation of concerns across the Edge, API Gateway, Inference, and Persistence layers.
 
 ```mermaid
 graph TD
-    subgraph Edge_Client [Client Interfaces & Edge Devices]
+    subgraph Edge_Layer [Client & Edge Devices]
         A[Telephony Gateway / WebRTC]
-        B[Dispatcher Console UI]
+        B[Dispatcher Console SPA]
         C[CCTV IP Cameras / RTSP]
     end
 
-    subgraph API_Gateway [FastAPI Backend Services]
-        D[WebSocket Manager]
-        E[REST API Endpoints]
-        F[Auth & Middleware]
+    subgraph API_Gateway [FastAPI Microservices]
+        D[WebSocket Event Bus]
+        E[RESTful Aggregator]
+        F[Auth & Zero-Trust Middleware]
     end
 
-    subgraph Inference_Engine [AI & Machine Learning Pipelines]
-        G[ASR/STT Node]
+    subgraph Inference_Mesh [AI & Machine Learning Pipelines]
+        G[ASR / STT Node]
         H[LLM Context Engine]
         I[Computer Vision Node]
-        J[RAG / Vector Retrieval]
+        J[RAG / Semantic Vector Retrieval]
     end
 
-    subgraph Persistence [Data & State Management]
+    subgraph Data_Lake [Persistence & State]
         K[(MongoDB Document Store)]
-        L[(Vector Database / FAISS)]
+        L[(FAISS Vector DB)]
         M[(Redis In-Memory Cache)]
     end
 
     A -->|Raw Audio Stream| D
-    D <-->|Bi-directional State| B
+    D <-->|Bi-directional State Sync| B
     C -->|HLS/RTSP Video| I
     
     D -->|Audio Chunks| G
     G -->|Text Tokens| H
-    H <-->|Context Queries| J
+    H <-->|Semantic Queries| J
     J <--> L
     I -->|Bounding Boxes / Hazard Flags| E
     
     E <--> K
     D <--> M
-    
-    H -->|NER / Suggested Prompts| D
 ```
 
-## Core Subsystems & Data Flow
+### 2. Real-Time Telemetry & WebSocket Sequence
 
-### 1. Real-Time Audio Intelligence (ASR & NLP)
-- **Streaming Transcription:** Audio streams are buffered and processed via state-of-the-art ASR models (e.g., Deepgram, Whisper) to generate highly accurate, real-time transcripts.
-- **Dynamic Context Extraction:** LLMs parse the tokenized transcript continuously, executing zero-shot classification and Named Entity Recognition (NER). The system structures raw dialogue into actionable JSON schemas (e.g., `{"incident_type": "Medical", "severity": "HIGH", "location": "Connaught Place"}`).
-- **AI Copilot Prompts:** An autonomous agent evaluates the dialogue tree against standard emergency response protocols. It pushes real-time telemetry to the dispatcher, suggesting optimal follow-up questions to accelerate triage.
+E-mrg relies on an Event-Driven Architecture (EDA) to ensure that the dispatcher dashboard receives sub-second updates as the AI processes the caller's audio.
 
-### 2. Situational Awareness & Geospatial Mapping
-- **Live Incident Tracking:** The frontend leverages Leaflet and WebGL for high-performance rendering of dynamic geographical coordinates. Incident markers are dynamically styled based on real-time severity metrics computed by the AI.
-- **Unit Telemetry:** The backend maintains an asynchronous state machine tracking the availability, geographic location, and operational load of all response units (Ambulances, Fire Tenders, PCR Vans). 
+```mermaid
+sequenceDiagram
+    participant C as Caller (WebRTC)
+    participant WS as WebSocket Gateway
+    participant STT as Deepgram ASR
+    participant LLM as Gemma 4B Engine
+    participant UI as Dispatcher Dashboard
 
-### 3. Edge Computer Vision Integration
-- **Hazard Detection:** Analyzes localized CCTV feeds using YOLO-based or Transformer-based object detection models. 
-- **Automated Verification Matrix:** The system cross-references NLP-extracted data (e.g., audio transcript claims a "Car crash") with visual inferences (e.g., detected vehicles = 2, bounding box overlap detected) to compute a multi-modal confidence score, entirely mitigating fraudulent or prank calls.
+    C->>WS: Stream Audio Chunks (Binary)
+    WS->>STT: Route Audio for Inference
+    STT-->>WS: Return Transcribed Tokens
+    WS->>UI: Broadcast Live Transcript
+    
+    WS->>LLM: Pass Token Window (Context)
+    LLM-->>LLM: Execute NER & Zero-Shot Classification
+    LLM-->>WS: Return Extracted JSON Schema (Hazards, Location)
+    WS->>UI: Update Incident Telemetry UI
+    
+    LLM-->>WS: Generate Suggested Prompt
+    WS->>UI: Render AI Copilot Suggestion
+```
 
-## Technical Specifications & Stack
+### 3. Edge Computer Vision Validation Matrix
+
+To mitigate fraudulent calls and provide deterministic ground truth, E-mrg utilizes YOLO/Transformer-based Edge inference to validate NLP claims against real-world visual data.
+
+```mermaid
+flowchart LR
+    subgraph Natural Language Pipeline
+        A[Caller Audio] --> B[ASR Transcription]
+        B --> C[LLM Classification]
+        C -->|Claim: 'Car Crash', Vehicles: 2| D(Aggregation Engine)
+    end
+
+    subgraph Computer Vision Pipeline
+        E[CCTV Stream] --> F[Frame Sampling]
+        F --> G[Edge Object Detection]
+        G -->|Detected: 2 Vehicles, Overlap: True| D
+    end
+
+    D --> H{Confidence Scoring Matrix}
+    H -->|Threshold > 0.85| I[Auto-Verify Incident]
+    H -->|Threshold < 0.85| J[Flag for Dispatcher Review]
+```
+
+### 4. RAG-Powered Protocol Retrieval (LLM Pipeline)
+
+The LLM does not hallucinate procedures; it utilizes Retrieval-Augmented Generation (RAG) to query a localized Vector Database of standard operating procedures (SOPs) based on the computed semantic similarity of the emergency.
+
+```mermaid
+graph TD
+    A[Incoming Transcript Tokens] --> B[Generate Text Embeddings]
+    B --> C[Cosine Similarity Search]
+    C <--> D[(FAISS Vector DB: City SOPs)]
+    C --> E[Retrieve Top-K Context Vectors]
+    E --> F[Inject Context into LLM Prompt]
+    F --> G[Gemma 4B Generates Deterministic Protocol]
+    G --> H[Render Actionable UI for Dispatcher]
+```
+
+---
+
+## Technical Specifications & Tech Stack
 
 | Component | Technology / Framework | Core Functionality & Purpose |
 |-----------|-------------------------|------------------------------|
-| **Frontend UI** | Next.js 15, React 19, TypeScript | Server-Side Rendering (SSR), Concurrent Mode, strict typing |
-| **Styling** | Tailwind CSS | Utility-first CSS, Custom dark mode UI tokens for command centers |
-| **Backend API** | Python 3.10+, FastAPI | Asynchronous I/O, RESTful architecture, WebSocket routing |
-| **Data Persistence** | MongoDB | NoSQL document storage for event sourcing and operational logs |
-| **Geospatial Mapping** | Leaflet | Coordinate visualization, bounding box calculation, and clustering |
-| **Generative AI** | Google Gemma (4B), Ollama | Localized Large Language Models for fast inference and private data processing |
-| **Transcription** | Deepgram / Whisper | Real-time audio tokenization and speech-to-text inference |
-| **State Management** | React Context API + WebSockets | Low-latency, distributed state synchronization across the client |
+| **Frontend UI** | Next.js 15, React 19, TypeScript | Server-Side Rendering (SSR), Concurrent Mode, strict typing, PWA Support |
+| **Styling** | Tailwind CSS | Utility-first CSS, Custom dark mode UI tokens for high-contrast command centers |
+| **Backend API** | Python 3.10+, FastAPI | Asynchronous I/O (asyncio), RESTful architecture, WebSocket routing |
+| **Data Persistence** | MongoDB | NoSQL document storage for event sourcing, audit logging, and operational telemetry |
+| **Caching & Pub/Sub** | Redis | High-throughput in-memory caching and distributed message brokering |
+| **Geospatial Mapping** | Leaflet / WebGL | Coordinate visualization, bounding box calculation, dynamic geospatial clustering |
+| **Generative AI** | Google Gemma (4B), Ollama | Localized Large Language Models for fast inference and secure, private data processing |
+| **Transcription** | Deepgram / Whisper | Real-time audio tokenization and low-latency speech-to-text inference |
+| **State Management** | React Context API + WebSockets | Low-latency, distributed state synchronization across the client SPA |
 
 ## Setup & Deployment Instructions
 
@@ -110,6 +160,7 @@ graph TD
 - Python (v3.10+)
 - npm or pnpm
 - MongoDB instance (local server or Atlas cluster)
+- Redis Server (for Pub/Sub and rate limiting)
 
 ### Local Environment Initialization
 
@@ -120,7 +171,7 @@ cd E-mrg
 ```
 
 #### 2. Frontend Dependencies & Execution
-The frontend is optimized for local development using the Next.js compilation engine.
+The frontend is optimized for local development using the Next.js compilation engine with Hot Module Replacement (HMR).
 ```bash
 cd apps/web
 npm install
@@ -129,7 +180,7 @@ npm run dev
 The dispatcher interface is accessible via `http://localhost:3000`.
 
 #### 3. Backend Dependencies & Execution
-Establish a dedicated virtual environment for the Python API layer to ensure dependency isolation:
+Establish a dedicated virtual environment for the Python API layer to ensure dependency isolation and prevent global namespace pollution:
 ```bash
 cd apps/api
 python -m venv venv
@@ -149,16 +200,16 @@ The WebSocket gateway and REST endpoints will initialize on `http://localhost:80
 ```text
 E-mrg/
 ├── apps/
-│   ├── web/               # Next.js UI, React Context, Geospatial Logic
+│   ├── web/               # Next.js SPA, React Context, Geospatial & Map Logic
 │   └── api/               # FastAPI, WebSocket Managers, ML Inference Wrappers
 ├── packages/
 │   └── contracts/         # Shared TypeScript Data Transfer Objects (DTOs)
-├── docs/                  # System Architecture and API Contracts
-└── docker/                # Container Orchestration (Docker Compose configurations)
+├── docs/                  # System Architecture, OpenAPI Specs, and CI/CD docs
+└── docker/                # Container Orchestration (Docker Compose, Kubernetes configs)
 ```
 
-## Security & Compliance
-E-mrg is designed with strict data privacy considerations. By utilizing local inference engines (like Google's Gemma 4B running on Ollama) for processing sensitive Personally Identifiable Information (PII) from emergency calls, the system ensures that critical data never leaves the secure intranet of the PSAP, adhering to modern compliance and data sovereignty standards.
+## Security, Privacy & Compliance (Zero-Trust)
+E-mrg is designed with strict data privacy and HIPAA-compliant considerations. By utilizing local inference engines (like Google's **Gemma 4B** running on Ollama) for processing sensitive Personally Identifiable Information (PII) and Protected Health Information (PHI) from emergency calls, the system ensures that critical data never leaves the secure intranet (VPC) of the PSAP. All data in transit is encrypted via TLS 1.3, adhering to modern compliance and data sovereignty standards.
 
 ## License
 Distributed under the MIT License.
