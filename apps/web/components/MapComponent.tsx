@@ -21,13 +21,14 @@ interface MapComponentProps {
   incidents: MapIncident[];
   minimap?: boolean;
   center?: Coordinates;
+  mapStyle?: 'default' | 'dark' | 'satellite';
 }
 
-const baseCoords: Coordinates = [39.7817, -89.6501];
+const baseCoords: Coordinates = [28.6139, 77.2090];
 const stations = [
-  { name: 'Springfield Central Station', position: [39.795, -89.65] as Coordinates },
-  { name: 'North Station', position: [39.82, -89.65] as Coordinates },
-  { name: 'Riverside Response Station', position: [39.78, -89.635] as Coordinates },
+  { name: 'Connaught Place Central Station', position: [28.6304, 77.2177] as Coordinates },
+  { name: 'North Delhi Station', position: [28.6800, 77.2000] as Coordinates },
+  { name: 'South Delhi Response Station', position: [28.5500, 77.2200] as Coordinates },
 ];
 
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
@@ -54,13 +55,21 @@ function MapViewport({ positions, minimap }: { positions: Coordinates[]; minimap
   const map = useMap();
   useEffect(() => {
     if (positions.length === 0) return;
-    if (positions.length === 1 || minimap) map.setView(positions[0], minimap ? 15 : 13);
-    else map.fitBounds(L.latLngBounds(positions), { padding: [48, 48], maxZoom: 15 });
-  }, [map, minimap, positions]);
+    
+    if (positions.length === 1 || minimap) {
+      const newCenter = L.latLng(positions[0]);
+      if (map.getCenter().distanceTo(newCenter) > 200 || map.getZoom() !== (minimap ? 15 : 13)) {
+        map.flyTo(positions[0], minimap ? 15 : 13, { duration: 1.5 });
+      }
+    } else {
+      const bounds = L.latLngBounds(positions);
+      map.fitBounds(bounds, { padding: [48, 48], maxZoom: 15, animate: true, duration: 1.5 });
+    }
+  }, [map, minimap, JSON.stringify(positions)]);
   return null;
 }
 
-export default function MapComponent({ incidents, minimap = false, center = baseCoords }: MapComponentProps): React.JSX.Element {
+export default function MapComponent({ incidents, minimap = false, center = baseCoords, mapStyle = 'default' }: MapComponentProps): React.JSX.Element {
   const [geocoded, setGeocoded] = useState<Record<string, Coordinates>>({});
 
   useEffect(() => {
@@ -88,11 +97,17 @@ export default function MapComponent({ incidents, minimap = false, center = base
   }), [geocoded, incidents]);
   const positions = useMemo(() => markers.map(({ position }) => position), [markers]);
 
+  const tileUrl = mapStyle === 'dark' 
+    ? 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png'
+    : mapStyle === 'satellite'
+    ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+    : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+
   return (
     <div style={{ height: minimap ? '180px' : '100%', width: '100%', borderRadius: '12px', overflow: 'hidden', border: minimap ? 'none' : '1px solid var(--border-color)', position: 'relative', zIndex: 1 }}>
       <MapContainer center={positions[0] ?? center} zoom={minimap ? 15 : 13} zoomControl={!minimap} scrollWheelZoom={!minimap} dragging={!minimap} style={{ height: '100%', width: '100%', zIndex: 0 }}>
         <MapViewport positions={positions} minimap={minimap} />
-        <TileLayer attribution={minimap ? '' : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'} url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        <TileLayer attribution={minimap ? '' : '&copy; OpenStreetMap contributors'} url={tileUrl} />
         {markers.map(({ incident, position }) => <Marker key={incident.id} position={position}>{!minimap && <Popup><div style={{ fontFamily: 'var(--font-primary), sans-serif' }}><div style={{ fontWeight: 800, color: 'var(--accent-red)' }}>{incident.id}</div><div style={{ fontWeight: 600 }}>{incident.type}</div>{incident.location && <div style={{ fontSize: '0.8rem', color: '#666' }}>{incident.location}</div>}<div style={{ fontSize: '0.8rem', color: '#666' }}>Severity: {incident.severity}</div><div style={{ fontSize: '0.8rem', color: '#666' }}>Status: {incident.status}</div><div style={{ fontSize: '0.8rem', color: '#666' }}>Nearest response station: {nearestStation(position)}</div></div></Popup>}</Marker>)}
       </MapContainer>
       {minimap && <><div style={{ position: 'absolute', width: '100%', height: '2px', background: 'var(--accent-red)', top: '50%', opacity: 0.3, boxShadow: '0 0 10px var(--accent-red)', zIndex: 2, pointerEvents: 'none' }} /><div style={{ position: 'absolute', height: '100%', width: '2px', background: 'var(--accent-red)', left: '50%', opacity: 0.3, boxShadow: '0 0 10px var(--accent-red)', zIndex: 2, pointerEvents: 'none' }} /><div style={{ position: 'absolute', inset: 0, border: '1px solid rgba(255,51,102,0.2)', borderRadius: '50%', transform: 'scale(1.5)', zIndex: 2, pointerEvents: 'none', animation: 'pulse 2s infinite' }} /></>}

@@ -1,4 +1,5 @@
 import { MongoClient } from 'mongodb';
+import ClientRecordsTable from './ClientRecordsTable';
 
 // Read both manually-created records and live AI incidents from the shared Mongo database.
 async function getRecords() {
@@ -26,63 +27,19 @@ export default async function RecordsPage() {
   const records = await getRecords();
 
   return (
-    <div style={{ padding: '3rem', maxWidth: '1200px', margin: '0 auto' }}>
-      <header style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <main style={{ padding: 'clamp(1rem, 3vw, 3rem)', maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2rem', height: 'calc(100vh - 64px)', overflowY: 'auto' }}>
+      <header style={{ padding: '24px 28px', borderRadius: 18, color: '#fff', background: 'linear-gradient(115deg, #121a2d, #20233b)', boxShadow: '0 18px 40px rgba(15,23,42,.16)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1 style={{ fontSize: '2rem', fontWeight: 700, margin: 0 }}>Incident Records</h1>
-          <p style={{ color: '#64748b', margin: 0, marginTop: '0.25rem' }}>Historical log of all emergency calls processed by E-MRG.</p>
+          <p style={{ margin: 0, color: '#fca5a5', fontSize: 12, fontWeight: 800, letterSpacing: '.1em' }}>DATABASE ARCHIVE</p>
+          <h1 style={{ margin: '6px 0 0', fontSize: 'clamp(1.4rem, 3vw, 2rem)' }}>Incident Records</h1>
+          <p style={{ color: '#cbd5e1', marginTop: '0.5rem', fontSize: '0.95rem' }}>Historical log of all emergency calls processed by E-MRG.</p>
         </div>
-        <a href="/" style={{ color: 'var(--accent-red)', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <a href="/" className="btn-primary" style={{ background: 'var(--accent-red)', color: '#fff', textDecoration: 'none', padding: '0.6rem 1.2rem', borderRadius: '10px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 12px rgba(239,68,68,.3)' }}>
           &larr; Back to Home
         </a>
       </header>
 
-      <div style={{ background: 'var(--card-bg)', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-          <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-            <tr>
-              <th style={{ padding: '1rem 1.5rem', fontSize: '0.85rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Incident ID</th>
-              <th style={{ padding: '1rem 1.5rem', fontSize: '0.85rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Type</th>
-              <th style={{ padding: '1rem 1.5rem', fontSize: '0.85rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Severity</th>
-              <th style={{ padding: '1rem 1.5rem', fontSize: '0.85rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Location</th>
-              <th style={{ padding: '1rem 1.5rem', fontSize: '0.85rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {records.length === 0 ? (
-              <tr>
-                <td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>
-                  No records found. Make sure MongoDB is running.
-                </td>
-              </tr>
-            ) : records.map((record, i) => (
-              <tr key={record._id} style={{ borderBottom: i === records.length - 1 ? 'none' : '1px solid #f1f5f9' }}>
-                <td style={{ padding: '1.25rem 1.5rem', fontWeight: 600 }}>{record.incident_id}</td>
-                <td style={{ padding: '1.25rem 1.5rem' }}>{record.type}</td>
-                <td style={{ padding: '1.25rem 1.5rem' }}>
-                  <span style={{ 
-                    padding: '0.25rem 0.75rem', borderRadius: '99px', fontSize: '0.8rem', fontWeight: 600,
-                    background: record.severity === 'Critical' ? 'var(--accent-red-light)' : record.severity === 'High' ? '#ffedd5' : '#dcfce7',
-                    color: record.severity === 'Critical' ? 'var(--accent-red)' : record.severity === 'High' ? '#ea580c' : '#16a34a'
-                  }}>
-                    {record.severity}
-                  </span>
-                </td>
-                <td style={{ padding: '1.25rem 1.5rem', color: 'var(--text-secondary)' }}>{record.location}</td>
-                <td style={{ padding: '1.25rem 1.5rem' }}>
-                  <span style={{ 
-                    padding: '0.25rem 0.75rem', borderRadius: '99px', fontSize: '0.8rem', fontWeight: 600,
-                    background: record.status === 'Active' ? '#dbeafe' : '#f1f5f9',
-                    color: record.status === 'Active' ? '#2563eb' : '#64748b'
-                  }}>
-                    {record.status}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+      <ClientRecordsTable records={records} />
+    </main>
   );
 }

@@ -10,9 +10,7 @@ export default function Home() {
       <nav className="navbar">
         <div className="nav-brand">
           <div className="brand-logo">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-            </svg>
+            <span style={{ fontWeight: 900, fontSize: '1.25rem', letterSpacing: '-1px' }}>EM</span>
           </div>
           EMRG
         </div>
@@ -143,7 +141,7 @@ export default function Home() {
           {/* Feature 1 */}
           <div className="p-bento-card large group">
             <div className="p-bento-content">
-              <div className="p-bento-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+              <div className="p-bento-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg></div>
               <h3>Real-time AI Transcription</h3>
               <p>Our fine-tuned models listen to the caller and transcribe the emergency in real-time, extracting intent, severity, and weapons presence with 99.9% accuracy.</p>
             </div>
@@ -239,10 +237,9 @@ export default function Home() {
       <section className="premium-cta">
         <div className="premium-cta-inner">
           <h2>Ready to upgrade your dispatch center?</h2>
-          <p>Join the next generation of emergency response. Deploy E-MRG alongside your existing infrastructure in days, not months.</p>
+          <p>Join the next generation of emergency response. Deploy E-MRG alongside your existing infrastructure today.</p>
           <div className="cta-buttons">
-            <Link href="/dashboard" className="btn-solid-black">Start Free Trial</Link>
-            <Link href="#contact" className="btn-outline-black">Contact Sales</Link>
+            <Link href="/dashboard" className="btn-solid-black">Open Dashboard</Link>
           </div>
         </div>
       </section>
@@ -252,7 +249,7 @@ export default function Home() {
         <div className="modern-footer-content">
           <div className="f-brand">
             <div className="f-logo">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              <span style={{ fontWeight: 900, fontSize: '1.25rem', letterSpacing: '-1px' }}>EM</span>
             </div>
             <span>E-MRG &copy; 2026</span>
           </div>

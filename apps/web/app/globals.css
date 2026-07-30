@@ -58,10 +58,14 @@
 body { 
   background-color: var(--bg-color);
   color: var(--text-primary); 
-  font-family: -apple-system, BlinkMacSystemFont, "San Francisco", "Inter", sans-serif;
+  font-family: var(--font-primary), -apple-system, BlinkMacSystemFont, "San Francisco", "Inter", sans-serif;
   min-height: 100vh;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
 }
 
 a { text-decoration: none; color: inherit; }
@@ -330,3 +334,87 @@ a { text-decoration: none; color: inherit; }
 .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 article { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; min-height: 140px; backdrop-filter: var(--card-backdrop); -webkit-backdrop-filter: var(--card-backdrop); box-shadow: var(--shadow-lg); transition: box-shadow 0.3s ease, border-color 0.3s ease; }
 .wide { grid-column: 1 / -1; } .metric { font-size: 3rem; font-weight: 700; background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-muted) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+/* Responsive App Layout */
+.app-layout-container { display: flex; min-height: 100vh; background-color: var(--bg-color); font-family: 'Inter', -apple-system, sans-serif; }
+.app-sidebar { width: 260px; background-color: var(--card-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; flex-shrink: 0; z-index: 50; transition: transform 0.3s ease; }
+.mobile-header { display: none; padding: 1rem 1.5rem; background: var(--card-bg); border-bottom: 1px solid var(--border-color); align-items: center; justify-content: space-between; z-index: 40; position: sticky; top: 0; }
+.mobile-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 45; backdrop-filter: blur(4px); }
+
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .hero { flex-direction: column; padding: 2rem; text-align: center; align-items: center; }
+  .hero-content { padding-top: 1rem; align-items: center; display: flex; flex-direction: column; }
+  .hero h1 { font-size: 3.5rem; }
+  .hero-actions { justify-content: center; }
+  .hero-visual { justify-content: center; margin-top: 2rem; padding-top: 0; }
+  .hero-desc { margin-left: auto; margin-right: auto; }
+  
+  .premium-bento-grid { grid-template-columns: repeat(2, 1fr); }
+  .p-bento-card.large { grid-column: span 2; }
+  
+  .premium-showcase { flex-direction: column; padding: 2rem; text-align: center; }
+  .showcase-text { margin-bottom: 2rem; }
+  
+  .pipeline-steps { grid-template-columns: repeat(2, 1fr); }
+  .pipeline-wrapper { padding: 3rem; text-align: center; }
+  .pipeline-header { margin: 0 auto; }
+  
+  .integrations-marquee { gap: 2rem; }
+}
+
+@media (max-width: 768px) {
+  .navbar { padding: 1rem; }
+  .nav-links { display: none; }
+  
+  .hero { padding: 2rem 1rem; }
+  .hero h1 { font-size: 2.5rem; }
+  .hero-desc { font-size: 1rem; margin-bottom: 1.5rem; }
+  .hero-actions { flex-direction: column; width: 100%; gap: 1rem; }
+  .btn-primary, .btn-outline { width: 100%; justify-content: center; padding: 1.2rem; }
+  
+  .premium-bento-grid { grid-template-columns: 1fr; }
+  .p-bento-card.large { grid-column: 1; flex-direction: column; }
+  .p-bento-visual { padding: 0 1.5rem 1.5rem 1.5rem; width: 100%; }
+  
+  .pipeline-steps { grid-template-columns: 1fr; }
+  .section-container { padding: 4rem 1rem; }
+  
+  .premium-cta { padding: 4rem 1rem; }
+  .premium-cta h2 { font-size: 2.2rem; }
+  .cta-buttons { flex-direction: column; width: 100%; }
+  .btn-solid-black, .btn-outline-black { width: 100%; padding: 1.2rem; }
+  
+  .modern-footer-content { flex-direction: column; gap: 2rem; }
+  
+  .grid { grid-template-columns: 1fr; }
+  .dashboard { padding: 16px; }
+  .dashboard header { flex-direction: column; gap: 1rem; align-items: flex-start; }
+  
+  .floating-card { width: 100%; max-width: 100%; padding: 1.5rem; }
+  .features-header h2 { font-size: 2.2rem; }
+
+  /* Force inline grids to be single column on mobile */
+  [style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
+  
+  /* Adjust inline flex layouts that are usually side-by-side */
+  header[style*="display: flex"] {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+  
+  /* General padding adjustments for inline styles */
+  main[style*="padding: 32px"] {
+    padding: 16px !important;
+  }
+  
+  .app-layout-container { flex-direction: column; }
+  .app-sidebar { position: fixed; top: 0; bottom: 0; left: 0; transform: translateX(-100%); width: 280px; }
+  .app-sidebar.mobile-open { transform: translateX(0); }
+  .mobile-header { display: flex; }
+  .mobile-overlay.active { display: block; }
+  main[style*="height: 100vh"] { height: calc(100vh - 65px) !important; }
+}

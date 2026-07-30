@@ -8,14 +8,14 @@ export default function AuditLogsPage() {
 
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', height: '100%', maxWidth: '1400px', margin: '0 auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <main style={{ display: 'flex', flexDirection: 'column', gap: '2rem', height: 'calc(100vh - 64px)', overflowY: 'auto', padding: 'clamp(1rem, 3vw, 2rem)', maxWidth: '1400px', margin: '0 auto' }}>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Audit Logs</h2>
           <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>Immutable record of all system events and user actions.</p>
         </div>
-        <div style={{ display: 'flex', gap: '1rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.5rem 1rem' }}>
+        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.5rem 1rem', flex: '1 1 auto' }}>
             <Search size={16} color="var(--text-muted)" style={{ marginRight: '0.5rem' }} />
             <input type="text" placeholder="Search logs..." style={{ border: 'none', outline: 'none', background: 'transparent', width: '200px', color: 'var(--text-primary)' }} />
           </div>
@@ -26,10 +26,10 @@ export default function AuditLogsPage() {
             <Download size={16} /> Export CSV
           </button>
         </div>
-      </div>
+      </header>
 
-      <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '12px', overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '12px', overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
           <thead>
             <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
               <th style={{ padding: '1rem 1.5rem', color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600 }}>Log ID</th>
@@ -69,7 +69,7 @@ export default function AuditLogsPage() {
           </tbody>
         </table>
         
-        <div style={{ padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-color)' }}>
+        <div style={{ padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', borderTop: '1px solid var(--border-color)' }}>
           <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Showing 1 to 6 of 1,248 entries</span>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button style={{ padding: '0.5rem 1rem', background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'var(--text-muted)', cursor: 'not-allowed' }}>Previous</button>
@@ -77,6 +77,6 @@ export default function AuditLogsPage() {
           </div>
         </div>
       </div>
-    </div>
+    </main>
   );
 }
