@@ -9,6 +9,7 @@ export type Severity = (typeof SEVERITIES)[number];
 
 export const EVENT_NAMES = [
   "call.started", "transcript.updated", "incident.updated", "ai.status",
+  "cctv.analysis.requested", "cctv.analysis.completed", "cctv.analysis.failed",
   "dispatcher.joined", "dispatcher.left", "call.ended", "system.error",
 ] as const;
 export type EventName = (typeof EVENT_NAMES)[number];

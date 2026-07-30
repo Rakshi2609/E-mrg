@@ -15,6 +15,7 @@ from app.routers.dashboard import router as dashboard_router
 from app.routers.dispatch import router as dispatch_router
 from app.routers.demo import router as demo_router
 from app.routers.health import router as health_router
+from app.routers.cctv import router as cctv_router
 from app.database.mongodb import MongoDatabase
 
 database = MongoDatabase(settings.mongodb_uri)
@@ -48,6 +49,7 @@ app.include_router(dispatcher_ws_router)
 app.include_router(demo_router)
 app.include_router(dashboard_router)
 app.include_router(dispatch_router)
+app.include_router(cctv_router)
 
 
 @app.get("/health/live", tags=["health"])

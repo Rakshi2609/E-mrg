@@ -1,7 +1,65 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AlertTriangle, MapPin, Clock, Users, ArrowRight } from 'lucide-react';
 import { useLiveData } from '../../context/LiveDataContext';
+
+type CameraId = 'camera_1' | 'camera_2';
+
+function CctvEvidencePanel({ incidentId, analyses }: { incidentId: string; analyses: Array<{ id: string; cameraId: CameraId; cameraName: string; analyzedAt: string; model: string; detectedSituation: string; urgency: string; peopleEstimate?: number; vehiclesEstimate?: number; hazards: string[]; recommendedResponse: string; confidence: number; rationale: string; }> }) {
+  const [images, setImages] = useState<Partial<Record<CameraId, string>>>({});
+  const [runningCamera, setRunningCamera] = useState<CameraId | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+
+  useEffect(() => {
+    let active = true;
+    const objectUrls: string[] = [];
+    const loadPreviews = async (): Promise<void> => {
+      try {
+        const login = await fetch(`${apiUrl}/api/v1/auth/dev-session`, { method: 'POST' });
+        if (!login.ok) return;
+        const { token } = await login.json() as { token: string };
+        const previews = await Promise.all((['camera_1', 'camera_2'] as CameraId[]).map(async (cameraId) => {
+          const response = await fetch(`${apiUrl}/api/v1/incidents/${incidentId}/cctv/${cameraId}/image`, { headers: { Authorization: `Bearer ${token}` } });
+          if (!response.ok) return [cameraId, undefined] as const;
+          const url = URL.createObjectURL(await response.blob());
+          objectUrls.push(url);
+          return [cameraId, url] as const;
+        }));
+        if (active) setImages(Object.fromEntries(previews.filter((item): item is readonly [CameraId, string] => item[1] !== undefined)));
+      } catch { if (active) setMessage('Camera previews are unavailable.'); }
+    };
+    void loadPreviews();
+    return () => { active = false; objectUrls.forEach((url) => URL.revokeObjectURL(url)); };
+  }, [apiUrl, incidentId]);
+
+  const analyze = async (cameraId: CameraId): Promise<void> => {
+    setRunningCamera(cameraId);
+    setMessage(null);
+    try {
+      const login = await fetch(`${apiUrl}/api/v1/auth/dev-session`, { method: 'POST' });
+      if (!login.ok) throw new Error('Unable to start an authenticated analysis.');
+      const { token } = await login.json() as { token: string };
+      const response = await fetch(`${apiUrl}/api/v1/incidents/${incidentId}/cctv/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ camera_id: cameraId }) });
+      if (!response.ok) throw new Error((await response.json() as { detail?: string }).detail ?? 'CCTV analysis failed.');
+      setMessage('Analysis saved. The evidence card will update live.');
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'CCTV analysis failed.'); }
+    finally { setRunningCamera(null); }
+  };
+
+  return <section style={{ marginTop: '1.5rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-color)' }}>
+    <h3 style={{ margin: '0 0 0.25rem' }}>CCTV evidence</h3>
+    <p style={{ margin: '0 0 1rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Mistral AI CCTV evidence — dispatcher verification required. Findings never change severity or dispatch automatically.</p>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '1rem' }}>
+      {(['camera_1', 'camera_2'] as CameraId[]).map((cameraId, index) => <div key={cameraId} style={{ border: '1px solid var(--border-color)', borderRadius: '10px', overflow: 'hidden' }}>
+        {images[cameraId] ? <img src={images[cameraId]} alt={`Camera ${index + 1} CCTV feed`} style={{ display: 'block', width: '100%', height: '140px', objectFit: 'cover' }} /> : <div style={{ height: '140px', display: 'grid', placeItems: 'center', background: 'var(--bg-secondary)', color: 'var(--text-muted)', fontSize: '0.8rem' }}>Loading camera…</div>}
+        <div style={{ padding: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}><strong>Camera {index + 1}</strong><button onClick={() => void analyze(cameraId)} disabled={runningCamera !== null} style={{ background: 'var(--accent-red)', color: '#fff', border: 0, borderRadius: '6px', padding: '0.4rem 0.6rem', fontWeight: 700, cursor: runningCamera ? 'wait' : 'pointer', opacity: runningCamera && runningCamera !== cameraId ? 0.6 : 1 }}>{runningCamera === cameraId ? 'Analyzing…' : 'Analyze'}</button></div>
+      </div>)}
+    </div>
+    {message && <p role="status" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{message}</p>}
+    {analyses.length > 0 && <div style={{ display: 'grid', gap: '0.75rem', marginTop: '1rem' }}>{analyses.slice().reverse().map((analysis) => <article key={analysis.id} style={{ background: 'var(--bg-secondary)', borderRadius: '8px', padding: '0.85rem' }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}><strong>{analysis.cameraName}: {analysis.detectedSituation}</strong><span style={{ textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 800, color: analysis.urgency === 'critical' || analysis.urgency === 'high' ? 'var(--accent-red)' : 'var(--text-secondary)' }}>{analysis.urgency}</span></div><p style={{ margin: '0.5rem 0', fontSize: '0.85rem' }}>{analysis.rationale}</p><p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-secondary)' }}><strong>Hazards:</strong> {analysis.hazards.join(', ') || 'None observed'} · <strong>Recommended:</strong> {analysis.recommendedResponse} · <strong>Confidence:</strong> {Math.round(analysis.confidence * 100)}%</p><small style={{ color: 'var(--text-muted)' }}>{new Date(analysis.analyzedAt).toLocaleString()} · {analysis.model}</small></article>)}</div>}
+  </section>;
+}
 
 export default function IncidentsPage() {
   const { incidents } = useLiveData();
@@ -86,6 +144,7 @@ export default function IncidentsPage() {
           {selected.transcript?.length ? <ol>{selected.transcript.map((line, index) => <li key={`${line.time}-${index}`}><strong>{line.speaker === 'COPILOT_SYS' ? 'AI' : 'Caller'}:</strong> {line.text} <small>{line.time}</small></li>)}</ol> : <p>No transcript captured for this incident.</p>}
           <button onClick={() => void dispatchSelected()} style={{ background: 'var(--accent-red)', color: 'white', border: 0, borderRadius: '8px', padding: '0.75rem 1rem', fontWeight: 700, cursor: 'pointer' }}>Call dispatcher</button>{dispatchStatus && <p role="status">{dispatchStatus}</p>}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}><div><strong>Location</strong><p>{selected.location}</p></div><div><strong>Status</strong><p>{selected.status}</p></div><div><strong>Severity</strong><p>{selected.severity}</p></div><div><strong>Victims</strong><p>{selected.victims ?? 'Unknown'}</p></div><div><strong>Recommended response</strong><p>{selected.units.join(', ')}</p></div><div><strong>Hazards</strong><p>{selected.hazards?.join(', ') || 'None reported'}</p></div><div><strong>AI confidence</strong><p>{selected.confidence ? `${Math.round(selected.confidence * 100)}%` : 'Unknown'}</p></div></div>
+          <CctvEvidencePanel incidentId={selected.id} analyses={selected.cctvAnalyses} />
         </article>
       </div>}
     </div>

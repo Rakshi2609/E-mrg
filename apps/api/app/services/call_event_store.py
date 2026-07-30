@@ -33,6 +33,8 @@ class CallEventStore:
             await self._store_transcript(event)
         elif event.event == "incident.updated":
             await self._upsert_incident(event)
+        elif event.event == "cctv.analysis.completed":
+            await self._store_cctv_analysis(event)
         elif event.event == "call.ended":
             await self._complete_call(event)
 
@@ -73,4 +75,14 @@ class CallEventStore:
             {"call_sid": event.call_id},
             {"$set": {"status": "completed", "ended_at": event.occurred_at, "updated_at": event.occurred_at}},
             upsert=False,
+        )
+
+    async def _store_cctv_analysis(self, event: EventEnvelope) -> None:
+        analysis = {**event.payload, "call_id": event.call_id, "event_id": event.event_id, "occurred_at": event.occurred_at}
+        await asyncio.to_thread(self._database.collection("cctv_analyses").insert_one, analysis)
+        await asyncio.to_thread(
+            self._database.collection("incidents").update_one,
+            {"call_id": event.call_id},
+            {"$push": {"cctv_analyses": analysis}, "$set": {"updated_at": event.occurred_at}},
+            upsert=True,
         )

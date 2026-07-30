@@ -5,6 +5,7 @@ import { connectDispatcherEvents } from '../lib/websocket';
 
 type TranscriptLine = { time: string; speaker: 'TARGET_CALLER' | 'COPILOT_SYS'; text: string; };
 type SequenceEvent = { id: string; time: string; title: string; isActive?: boolean; };
+type CctvAnalysis = { id: string; cameraId: 'camera_1' | 'camera_2'; cameraName: string; analyzedAt: string; model: string; detectedSituation: string; urgency: 'low' | 'medium' | 'high' | 'critical'; peopleEstimate?: number; vehiclesEstimate?: number; hazards: string[]; recommendedResponse: string; confidence: number; rationale: string; };
 
 type Call = { 
   id: string; caller: string; phone: string; type: string; severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'; time: string; location: string; status: 'Active' | 'Queued' | 'Resolved' | 'Ringing';
@@ -12,7 +13,7 @@ type Call = {
   summary: string;
   sequence: SequenceEvent[];
 };
-type Incident = { id: string; type: string; location: string; time: string; status: 'Active' | 'Dispatched' | 'Resolved'; severity: string; units: string[]; latitude?: number; longitude?: number; victims?: number; hazards?: string[]; summary?: string; confidence?: number; transcript?: TranscriptLine[]; };
+type Incident = { id: string; type: string; location: string; time: string; status: 'Active' | 'Dispatched' | 'Resolved'; severity: string; units: string[]; latitude?: number; longitude?: number; victims?: number; hazards?: string[]; summary?: string; confidence?: number; transcript?: TranscriptLine[]; cctvAnalyses: CctvAnalysis[]; };
 type Log = { id: string; time: string; user: string; action: string; resource: string; status: 'Success' | 'Failed'; };
 type Note = { id: string; title: string; content: string; author: string; date: string; color: string; };
 
@@ -52,8 +53,8 @@ const defaultCalls: Call[] = [
 ];
 
 const defaultIncidents: Incident[] = [
-  { id: 'INC-2025-881', type: 'Structure Fire', location: '742 Evergreen Terrace', time: '10:15:00 AM', status: 'Active', severity: 'CRITICAL', units: ['Engine 4', 'Ladder 2'] },
-  { id: 'INC-2025-882', type: 'Traffic Collision', location: 'I-95 Northbound', time: '10:20:00 AM', status: 'Dispatched', severity: 'HIGH', units: ['Unit 42', 'Ambulance 3'] },
+  { id: 'INC-2025-881', type: 'Structure Fire', location: '742 Evergreen Terrace', time: '10:15:00 AM', status: 'Active', severity: 'CRITICAL', units: ['Engine 4', 'Ladder 2'], cctvAnalyses: [] },
+  { id: 'INC-2025-882', type: 'Traffic Collision', location: 'I-95 Northbound', time: '10:20:00 AM', status: 'Dispatched', severity: 'HIGH', units: ['Unit 42', 'Ambulance 3'], cctvAnalyses: [] },
 ];
 
 const defaultLogs: Log[] = [
@@ -121,7 +122,14 @@ export function LiveDataProvider({ children }: { children: React.ReactNode }) {
         const units = /fire|smoke|gas/i.test(`${incidentType} ${hazards.join(' ')}`) ? ['Fire Engine', 'Fire Brigade'] : /medical|injur|collapse/i.test(incidentType) ? ['Ambulance', 'EMS'] : ['Emergency Response Unit'];
         const latitude = Number(item.latitude);
         const longitude = Number(item.longitude);
-        return [{ id, type: String(item.incident_type ?? 'Unknown'), location: String(item.location ?? 'Not confirmed'), time: new Date(incidentEvent.occurred_at).toLocaleTimeString(), status: handoff ? 'Dispatched' : ended ? 'Resolved' : 'Active', severity: String(item.severity ?? 'unknown').toUpperCase(), units, latitude: Number.isFinite(latitude) ? latitude : undefined, longitude: Number.isFinite(longitude) ? longitude : undefined, victims: Number(item.victims) || undefined, hazards: Array.isArray(item.hazards) ? item.hazards.map(String) : [], summary: String(item.summary ?? item.reply ?? ''), confidence: Number(item.ai_confidence ?? item.confidence) || undefined, transcript: nextCalls.find((call) => call.id === id)?.transcript ?? [] }];
+        const cctvAnalyses = callEvents.flatMap((event): CctvAnalysis[] => {
+          if (event.event !== 'cctv.analysis.completed') return [];
+          const evidence = payload(event);
+          const analysis = (evidence.analysis ?? {}) as Record<string, unknown>;
+          const confidence = Number(analysis.confidence);
+          return [{ id: event.event_id, cameraId: evidence.camera_id === 'camera_2' ? 'camera_2' : 'camera_1', cameraName: String(evidence.camera_name ?? 'Camera'), analyzedAt: String(evidence.analyzed_at ?? event.occurred_at), model: String(evidence.model ?? 'Ollama'), detectedSituation: String(analysis.detected_situation ?? 'No finding returned.'), urgency: ['low', 'medium', 'high', 'critical'].includes(String(analysis.urgency)) ? String(analysis.urgency) as CctvAnalysis['urgency'] : 'medium', peopleEstimate: Number.isFinite(Number(analysis.people_estimate)) ? Number(analysis.people_estimate) : undefined, vehiclesEstimate: Number.isFinite(Number(analysis.vehicles_estimate)) ? Number(analysis.vehicles_estimate) : undefined, hazards: Array.isArray(analysis.hazards) ? analysis.hazards.map(String) : [], recommendedResponse: String(analysis.recommended_response ?? 'Dispatcher review required.'), confidence: Number.isFinite(confidence) ? confidence : 0, rationale: String(analysis.rationale ?? '') }];
+        });
+        return [{ id, type: String(item.incident_type ?? 'Unknown'), location: String(item.location ?? 'Not confirmed'), time: new Date(incidentEvent.occurred_at).toLocaleTimeString(), status: handoff ? 'Dispatched' : ended ? 'Resolved' : 'Active', severity: String(item.severity ?? 'unknown').toUpperCase(), units, latitude: Number.isFinite(latitude) ? latitude : undefined, longitude: Number.isFinite(longitude) ? longitude : undefined, victims: Number(item.victims) || undefined, hazards: Array.isArray(item.hazards) ? item.hazards.map(String) : [], summary: String(item.summary ?? item.reply ?? ''), confidence: Number(item.ai_confidence ?? item.confidence) || undefined, transcript: nextCalls.find((call) => call.id === id)?.transcript ?? [], cctvAnalyses }];
       });
       const nextLogs: Log[] = events.slice().reverse().map((event) => ({ id: event.event_id, time: new Date(event.occurred_at).toLocaleTimeString(), user: event.event.startsWith('ai.') ? 'AI Copilot' : 'System', action: event.event, resource: event.call_id, status: 'Success' }));
       if (!cancelled) { setCalls(nextCalls); setIncidents(nextIncidents); setLogs(nextLogs); }

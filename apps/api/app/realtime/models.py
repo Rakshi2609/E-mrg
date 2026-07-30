@@ -4,7 +4,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
-EventName = Literal["call.started", "transcript.updated", "incident.updated", "ai.status", "dispatcher.joined", "dispatcher.left", "call.ended", "system.error"]
+EventName = Literal["call.started", "transcript.updated", "incident.updated", "ai.status", "cctv.analysis.requested", "cctv.analysis.completed", "cctv.analysis.failed", "dispatcher.joined", "dispatcher.left", "call.ended", "system.error"]
 
 
 class EventEnvelope(BaseModel):
