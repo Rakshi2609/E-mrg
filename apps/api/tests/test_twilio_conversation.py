@@ -26,9 +26,12 @@ def test_voice_speech_result_returns_ai_gather() -> None:
     assert "Gather" in response.text
 
 
-def test_voice_handoff_request_ends_call() -> None:
+def test_voice_dispatch_request_keeps_call_open() -> None:
+    app.dependency_overrides[orchestrator_dependency] = lambda: AiOrchestrator(Provider())
     params = {"CallSid": "CA-HANDOFF", "SpeechResult": "Please send ambulance now"}
     signature = twilio_signature(URL, params, settings.twilio_auth_token)
     response = client.post("/api/v1/twilio/voice", data=params, headers={"X-Twilio-Signature": signature})
+    app.dependency_overrides.clear()
     assert response.status_code == 200
-    assert "Hangup" in response.text
+    assert "Gather" in response.text
+    assert "Hangup" not in response.text
