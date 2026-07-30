@@ -1,0 +1,17 @@
+{
+  "name": "E-MRG Dispatcher Copilot",
+  "short_name": "E-MRG",
+  "description": "AI-assisted emergency dispatch console.",
+  "start_url": "/login",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#ef4444",
+  "icons": [
+    {
+      "src": "/icons/emrg-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
