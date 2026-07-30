@@ -101,19 +101,33 @@ export function LiveDataProvider({ children }: { children: React.ReactNode }) {
       eventHistory.current = events;
       const grouped = new Map<string, EventEnvelope[]>();
       events.forEach((event) => grouped.set(event.call_id, [...(grouped.get(event.call_id) ?? []), event]));
+      const groupedCalls = [...grouped.entries()].sort(([, leftEvents], [, rightEvents]) => {
+        const leftLatest = leftEvents.at(-1)?.occurred_at ?? '';
+        const rightLatest = rightEvents.at(-1)?.occurred_at ?? '';
+        return rightLatest.localeCompare(leftLatest);
+      });
       const payload = (event: EventEnvelope | undefined): Record<string, unknown> => (event?.payload ?? {}) as Record<string, unknown>;
-      const liveCalls: Call[] = [...grouped.entries()].map(([id, callEvents]) => {
+      const callerReportedLocation = (callEvents: EventEnvelope[]): string | undefined => {
+        const callerMessages = callEvents.filter((event) => event.event === 'transcript.updated' && payload(event).speaker === 'caller').map((event) => String(payload(event).message ?? ''));
+        for (const message of callerMessages.reverse()) {
+          const match = message.match(/\b(?:near|located at|at|in)\s+([^.!?,]+)/i);
+          if (match?.[1]?.trim()) return match[1].trim();
+        }
+        return undefined;
+      };
+      const liveCalls: Call[] = groupedCalls.map(([id, callEvents]) => {
         const started = callEvents.find((event) => event.event === 'call.started');
         const incident = [...callEvents].reverse().find((event) => event.event === 'incident.updated');
         const ended = callEvents.some((event) => event.event === 'call.ended');
         const start = payload(started);
         const details = payload(incident);
+        const reportedLocation = callerReportedLocation(callEvents);
         const severity = String(details.severity ?? 'unknown').toUpperCase();
         const transcript = callEvents.filter((event) => event.event === 'transcript.updated').map((event) => {
           const item = payload(event);
           return { time: new Date(event.occurred_at).toLocaleTimeString(), speaker: item.speaker === 'assistant' ? 'COPILOT_SYS' as const : 'TARGET_CALLER' as const, text: String(item.message ?? '') };
         });
-        return { id, caller: 'Caller', phone: String(start.caller_number ?? 'Unknown'), type: String(details.incident_type ?? 'Collecting details'), severity: (['CRITICAL', 'HIGH', 'MEDIUM'].includes(severity) ? severity : 'LOW') as Call['severity'], time: started ? new Date(started.occurred_at).toLocaleTimeString() : '', location: String(details.location ?? 'Not confirmed'), status: ended ? 'Resolved' : 'Active', transcript, summary: String(details.summary ?? 'Incident details are being collected.'), sequence: callEvents.map((event) => ({ id: event.event_id, time: new Date(event.occurred_at).toLocaleTimeString(), title: event.event })) };
+        return { id, caller: 'Caller', phone: String(start.caller_number ?? 'Unknown'), type: String(details.incident_type ?? 'Collecting details'), severity: (['CRITICAL', 'HIGH', 'MEDIUM'].includes(severity) ? severity : 'LOW') as Call['severity'], time: started ? new Date(started.occurred_at).toLocaleTimeString() : '', location: String(details.location ?? reportedLocation ?? 'Not confirmed'), status: ended ? 'Resolved' : 'Active', transcript, summary: String(details.summary ?? 'Incident details are being collected.'), sequence: callEvents.map((event) => ({ id: event.event_id, time: new Date(event.occurred_at).toLocaleTimeString(), title: event.event })) };
       });
       // Keep real calls first while preserving the built-in call cards for the
       // dashboard demo when the event stream only contains one active call.
@@ -122,10 +136,11 @@ export function LiveDataProvider({ children }: { children: React.ReactNode }) {
         ...defaultCalls.filter((defaultCall) => !liveCalls.some((liveCall) => liveCall.id === defaultCall.id)),
       ];
       const nextIncidents: Incident[] = [
-        ...[...grouped.entries()].flatMap(([id, callEvents]) => {
+        ...groupedCalls.flatMap(([id, callEvents]) => {
           const incidentEvent = [...callEvents].reverse().find((event) => event.event === 'incident.updated');
           if (!incidentEvent) return [];
           const item = payload(incidentEvent);
+          const reportedLocation = callerReportedLocation(callEvents);
           const ended = callEvents.some((event) => event.event === 'call.ended');
           const handoff = callEvents.some((event) => event.event === 'ai.status' && String(payload(event).status) === 'handoff_requested');
           const incidentType = String(item.incident_type ?? 'Unknown');
@@ -140,7 +155,7 @@ export function LiveDataProvider({ children }: { children: React.ReactNode }) {
             const confidence = Number(analysis.confidence);
             return [{ id: event.event_id, cameraId: evidence.camera_id === 'camera_2' ? 'camera_2' : 'camera_1', cameraName: String(evidence.camera_name ?? 'Camera'), analyzedAt: String(evidence.analyzed_at ?? event.occurred_at), model: String(evidence.model ?? 'Ollama'), detectedSituation: String(analysis.detected_situation ?? 'No finding returned.'), urgency: ['low', 'medium', 'high', 'critical'].includes(String(analysis.urgency)) ? String(analysis.urgency) as CctvAnalysis['urgency'] : 'medium', peopleEstimate: Number.isFinite(Number(analysis.people_estimate)) ? Number(analysis.people_estimate) : undefined, vehiclesEstimate: Number.isFinite(Number(analysis.vehicles_estimate)) ? Number(analysis.vehicles_estimate) : undefined, hazards: Array.isArray(analysis.hazards) ? analysis.hazards.map(String) : [], recommendedResponse: String(analysis.recommended_response ?? 'Dispatcher review required.'), confidence: Number.isFinite(confidence) ? confidence : 0, rationale: String(analysis.rationale ?? '') }];
           });
-          return [{ id, type: String(item.incident_type ?? 'Unknown'), location: String(item.location ?? 'Not confirmed'), time: new Date(incidentEvent.occurred_at).toLocaleTimeString(), status: (handoff ? 'Dispatched' : ended ? 'Resolved' : 'Active') as Incident['status'], severity: String(item.severity ?? 'unknown').toUpperCase(), units, latitude: Number.isFinite(latitude) ? latitude : undefined, longitude: Number.isFinite(longitude) ? longitude : undefined, victims: Number(item.victims) || undefined, hazards: Array.isArray(item.hazards) ? item.hazards.map(String) : [], summary: String(item.summary ?? item.reply ?? ''), confidence: Number(item.ai_confidence ?? item.confidence) || undefined, transcript: nextCalls.find((call) => call.id === id)?.transcript ?? [], cctvAnalyses }];
+          return [{ id, type: String(item.incident_type ?? 'Unknown'), location: String(item.location ?? reportedLocation ?? 'Not confirmed'), time: new Date(incidentEvent.occurred_at).toLocaleTimeString(), status: (handoff ? 'Dispatched' : ended ? 'Resolved' : 'Active') as Incident['status'], severity: String(item.severity ?? 'unknown').toUpperCase(), units, latitude: Number.isFinite(latitude) ? latitude : undefined, longitude: Number.isFinite(longitude) ? longitude : undefined, victims: Number(item.victims) || undefined, hazards: Array.isArray(item.hazards) ? item.hazards.map(String) : [], summary: String(item.summary ?? item.reply ?? ''), confidence: Number(item.ai_confidence ?? item.confidence) || undefined, transcript: nextCalls.find((call) => call.id === id)?.transcript ?? [], cctvAnalyses }];
         }),
         ...defaultIncidents.filter((defaultInc) => !liveCalls.some((liveCall) => liveCall.id === defaultInc.id))
       ];
@@ -152,7 +167,7 @@ export function LiveDataProvider({ children }: { children: React.ReactNode }) {
       const login = await fetch(`${apiUrl}/api/v1/auth/dev-session`, { method: 'POST' });
       if (!login.ok || cancelled) return;
       const session = (await login.json()) as { token: string };
-      const history = await fetch(`${apiUrl}/api/v1/dashboard/events`, { headers: { Authorization: `Bearer ${session.token}` } });
+      const history = await fetch(`${apiUrl}/api/v1/dashboard/events?limit=500`, { headers: { Authorization: `Bearer ${session.token}` } });
       if (history.ok) projectEvents((await history.json()) as EventEnvelope[]);
       socket = connectDispatcherEvents(session.token, (event) => projectEvents([...eventHistory.current, event]));
     };
