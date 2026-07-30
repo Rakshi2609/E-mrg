@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import InteractiveGrid from '../components/InteractiveGrid';
+import { InstallAppButton } from '../components/InstallAppButton';
 
 export default function Home() {
   return (
@@ -22,6 +23,7 @@ export default function Home() {
           <Link href="/chat">AI Chatbot</Link>
         </div>
         <div className="nav-actions">
+          <InstallAppButton />
           <Link href="/dashboard" className="nav-btn">Open Dashboard</Link>
         </div>
       </nav>
