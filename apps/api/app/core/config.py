@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     environment: str = "development"
     log_level: str = "INFO"
     jwt_secret: SecretStr = SecretStr("development-only-secret-key-32-bytes")
+    demo_admin_username: str = "admin123"
+    demo_admin_password: SecretStr = SecretStr("123123")
     twilio_auth_token: str = "development-twilio-token"
     twilio_account_sid: str | None = None
     twilio_phone_number: str | None = None

@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { useLiveData } from '../context/LiveDataContext';
+import { AuthGuard, clearDispatcherSession } from './AuthGuard';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -31,7 +32,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   };
   if (routes[pathname]) pageTitle = routes[pathname];
 
-  return (
+  return <AuthGuard>
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg-color)', fontFamily: 'Inter, -apple-system, sans-serif' }}>
       {/* Sidebar */}
       <aside style={{ width: '260px', backgroundColor: 'var(--card-bg)', borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
@@ -46,6 +47,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <p style={{ margin: 0, fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>AI Dispatcher Copilot</p>
           </div>
         </div>
+        <button onClick={() => { clearDispatcherSession(); window.location.assign('/login'); }} style={{ margin: '1rem', padding: '0.65rem', background: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer' }}>Sign out</button>
 
         {/* Navigation */}
         <div style={{ padding: '1.25rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.25rem', flex: 1, overflowY: 'auto' }}>
@@ -76,7 +78,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       </main>
     </div>
-  );
+  </AuthGuard>;
 }
 
 // Helper Component for Nav Items

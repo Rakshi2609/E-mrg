@@ -18,6 +18,17 @@ def test_me_requires_bearer_token() -> None:
     assert client.get("/api/v1/auth/me").status_code == 401
 
 
+def test_hackathon_admin_login_returns_admin_token() -> None:
+    response = client.post("/api/v1/auth/login", json={"username": "admin123", "password": "123123"})
+    assert response.status_code == 200
+    assert response.json()["token"]
+
+
+def test_hackathon_admin_login_rejects_invalid_password() -> None:
+    response = client.post("/api/v1/auth/login", json={"username": "admin123", "password": "incorrect"})
+    assert response.status_code == 401
+
+
 def test_me_returns_principal_for_valid_token() -> None:
     response = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token()}"})
     assert response.status_code == 200
