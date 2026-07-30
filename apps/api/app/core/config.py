@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     jwt_secret: SecretStr = SecretStr("development-only-secret-key-32-bytes")
     twilio_auth_token: str = "development-twilio-token"
+    twilio_account_sid: str | None = None
+    twilio_phone_number: str | None = None
+    dispatcher_phone_number: str = "+919461284678"
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
 
 

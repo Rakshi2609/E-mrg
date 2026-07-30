@@ -6,7 +6,16 @@ import { useLiveData } from '../../context/LiveDataContext';
 export default function IncidentsPage() {
   const { incidents } = useLiveData();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [dispatchStatus, setDispatchStatus] = useState<string | null>(null);
   const selected = incidents.find((incident) => incident.id === selectedId);
+  const dispatchSelected = async (): Promise<void> => {
+    if (!selected) return;
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+    const login = await fetch(`${apiUrl}/api/v1/auth/dev-session`, { method: 'POST' });
+    const session = (await login.json()) as { token: string };
+    const response = await fetch(`${apiUrl}/api/v1/dispatch/call`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.token}` }, body: JSON.stringify({ incident_id: selected.id, incident_type: selected.type, severity: selected.severity, location: selected.location, victims: String(selected.victims ?? 'Unknown'), hazards: selected.hazards ?? [], summary: selected.summary ?? '' }) });
+    setDispatchStatus(response.ok ? 'Dispatcher call started.' : (await response.json()).detail ?? 'Dispatcher call failed.');
+  };
 
 
   return (
@@ -75,6 +84,7 @@ export default function IncidentsPage() {
           <p>{selected.summary || 'No summary has been generated yet.'}</p>{selected.status === 'Dispatched' && <p style={{ color: 'var(--accent-red)', fontWeight: 700 }}>Handoff recorded. Unit dispatch still requires dispatcher action.</p>}
           <h3>Conversation transcript</h3>
           {selected.transcript?.length ? <ol>{selected.transcript.map((line, index) => <li key={`${line.time}-${index}`}><strong>{line.speaker === 'COPILOT_SYS' ? 'AI' : 'Caller'}:</strong> {line.text} <small>{line.time}</small></li>)}</ol> : <p>No transcript captured for this incident.</p>}
+          <button onClick={() => void dispatchSelected()} style={{ background: 'var(--accent-red)', color: 'white', border: 0, borderRadius: '8px', padding: '0.75rem 1rem', fontWeight: 700, cursor: 'pointer' }}>Call dispatcher</button>{dispatchStatus && <p role="status">{dispatchStatus}</p>}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}><div><strong>Location</strong><p>{selected.location}</p></div><div><strong>Status</strong><p>{selected.status}</p></div><div><strong>Severity</strong><p>{selected.severity}</p></div><div><strong>Victims</strong><p>{selected.victims ?? 'Unknown'}</p></div><div><strong>Recommended response</strong><p>{selected.units.join(', ')}</p></div><div><strong>Hazards</strong><p>{selected.hazards?.join(', ') || 'None reported'}</p></div><div><strong>AI confidence</strong><p>{selected.confidence ? `${Math.round(selected.confidence * 100)}%` : 'Unknown'}</p></div></div>
         </article>
       </div>}
