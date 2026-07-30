@@ -1,0 +1,4 @@
+interface:
+  display_name: "Deployment"
+  short_description: "Prepare E-mrg for safe deployment."
+  default_prompt: "Prepare an E-mrg service for deployment."
