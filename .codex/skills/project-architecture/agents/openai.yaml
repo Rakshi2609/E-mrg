@@ -1,0 +1,4 @@
+interface:
+  display_name: "Project Architecture"
+  short_description: "Shared conventions for the E-mrg emergency-call assistant."
+  default_prompt: "Plan the E-mrg repository architecture and implementation conventions."
