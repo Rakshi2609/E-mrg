@@ -14,16 +14,22 @@ from app.realtime.runtime import bus
 from app.services.call_event_store import CallEventStore
 from app.voice.security import validate_twilio_signature
 from app.voice.session import VoiceSessionStore
-from app.voice.twiml import greeting_twiml, handoff_twiml, response_with_gather
+from app.voice.twiml import greeting_twiml, response_with_gather
 
 router = APIRouter(prefix="/api/v1/twilio", tags=["twilio"])
 sessions = VoiceSessionStore()
-_HANDOFF_PHRASES = ("send ambulance", "send an ambulance", "send help", "dispatch", "end call", "goodbye")
 
 
-def handoff_requested(speech: str) -> bool:
-    normalized = speech.lower()
-    return any(phrase in normalized for phrase in _HANDOFF_PHRASES)
+def location_from_speech(speech: str) -> str | None:
+    """Keep a caller-provided area or landmark when the model omits it."""
+    normalized = " ".join(speech.split())
+    for marker in ("near ", "located at ", "at ", "in "):
+        start = normalized.lower().rfind(marker)
+        if start >= 0:
+            location = normalized[start + len(marker):].strip(" .,!?")
+            if location:
+                return location
+    return None
 
 
 def orchestrator_dependency(request: Request, settings: Settings = Depends(settings_dependency)) -> AiOrchestrator:
@@ -57,20 +63,16 @@ async def voice_webhook(
     call_sid = params.get("CallSid")
     if not call_sid:
         raise HTTPException(status_code=422, detail="CallSid is required")
+    events = CallEventStore(request.app.state.database, bus)
     speech = params.get("SpeechResult", "").strip()
     if not speech:
+        # Twilio invokes this first, before the caller has spoken. Persisting it
+        # here makes the incoming call visible to the dispatcher immediately.
+        await events.publish(EventEnvelope(call_id=call_sid, event="call.started", payload={"caller_number": params.get("From")}))
+        await events.publish(EventEnvelope(call_id=call_sid, event="ai.status", payload={"status": "listening"}))
         return Response(greeting_twiml(), media_type="application/xml")
     session = sessions.append(call_sid, f"Caller: {speech}")
-    events = CallEventStore(request.app.state.database, bus)
-    await events.publish(EventEnvelope(call_id=call_sid, event="call.started", payload={"caller_number": params.get("From")}))
     await events.publish(EventEnvelope(call_id=call_sid, event="transcript.updated", payload={"speaker": "caller", "message": speech}))
-    if handoff_requested(speech):
-        handoff_message = "I have recorded the information. A dispatcher will review it now. If anyone is in immediate danger, contact local emergency services."
-        sessions.append(call_sid, f"Assistant: {handoff_message}")
-        await events.publish(EventEnvelope(call_id=call_sid, event="transcript.updated", payload={"speaker": "assistant", "message": handoff_message}))
-        await events.publish(EventEnvelope(call_id=call_sid, event="ai.status", payload={"status": "handoff_requested"}))
-        await events.publish(EventEnvelope(call_id=call_sid, event="call.ended", payload={"reason": "caller_requested_handoff"}))
-        return Response(handoff_twiml(handoff_message), media_type="application/xml")
     await events.publish(EventEnvelope(call_id=call_sid, event="ai.status", payload={"status": "thinking"}))
     try:
         result = await orchestrator.respond(session.transcript, session.state)
@@ -89,6 +91,11 @@ async def voice_webhook(
                 missing_fields=["victims", "hazards"],
                 confidence=0.2,
             )
+    existing_location = session.state.known_fields.get("location")
+    caller_location = location_from_speech(speech)
+    location = result.location or caller_location or (existing_location if isinstance(existing_location, str) else None)
+    if location:
+        result = result.model_copy(update={"location": location, "missing_fields": [field for field in result.missing_fields if field != "location"]})
     session.state = ConversationStateMachine().advance(session.state, result.missing_fields, result)
     sessions.append(call_sid, f"Assistant: {result.reply}")
     await events.publish(EventEnvelope(call_id=call_sid, event="transcript.updated", payload={"speaker": "assistant", "message": result.reply}))

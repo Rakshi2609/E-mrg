@@ -1,6 +1,6 @@
 'use client';
 import React, { useEffect, useState } from 'react';
-import { AlertTriangle, MapPin, Clock, Users, ArrowRight } from 'lucide-react';
+import { AlertTriangle, MapPin, Clock, Users, ArrowRight, Bot, X } from 'lucide-react';
 import { useLiveData } from '../../context/LiveDataContext';
 
 type CameraId = 'camera_1' | 'camera_2';
@@ -192,15 +192,25 @@ export default function IncidentsPage() {
         </div>
       )}
 
-      {selected && <div role="dialog" aria-modal="true" style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }} onClick={() => setSelectedId(null)}>
-        <article onClick={(event) => event.stopPropagation()} style={{ background: 'var(--card-bg)', borderRadius: '16px', padding: '2rem', width: 'min(680px, 92vw)', maxHeight: '82vh', overflowY: 'auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}><div><h2 style={{ margin: 0 }}>{selected.type}</h2><p style={{ color: 'var(--text-muted)' }}>{selected.id}</p></div><button onClick={() => setSelectedId(null)} aria-label="Close details">Close</button></div>
-          <p>{selected.summary || 'Awaiting incident summary.'}</p>{selected.status === 'Dispatched' && <p style={{ color: 'var(--accent-red)', fontWeight: 700 }}>Handoff recorded. Unit dispatch still requires dispatcher action.</p>}
-          <h3>Conversation transcript</h3>
-          {selected.transcript?.length ? <ol>{selected.transcript.map((line, index) => <li key={`${line.time}-${index}`}><strong>{line.speaker === 'COPILOT_SYS' ? 'Dispatcher' : 'Caller'}:</strong> {line.text} <small>{line.time}</small></li>)}</ol> : <p>Waiting for audio stream.</p>}
-          <button onClick={() => void dispatchSelected()} style={{ background: 'var(--accent-red)', color: 'white', border: 0, borderRadius: '8px', padding: '0.75rem 1rem', fontWeight: 700, cursor: 'pointer' }}>Call dispatcher</button>{dispatchStatus && <p role="status">{dispatchStatus}</p>}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}><div><strong>Location</strong><p>{selected.location}</p></div><div><strong>Status</strong><p>{selected.status}</p></div><div><strong>Severity</strong><p>{selected.severity}</p></div><div><strong>Victims</strong><p>{selected.victims ?? 'Unknown'}</p></div><div><strong>Recommended response</strong><p>{selected.units.join(', ')}</p></div><div><strong>Hazards</strong><p>{selected.hazards?.join(', ') || 'None reported'}</p></div><div><strong>AI confidence</strong><p>{selected.confidence ? `${Math.round(selected.confidence * 100)}%` : 'Unknown'}</p></div></div>
-          <CctvEvidencePanel incidentId={selected.id} analyses={selected.cctvAnalyses} />
+      {selected && <div role="dialog" aria-modal="true" aria-label={`${selected.type} incident details`} style={{ position: 'fixed', inset: 0, padding: '1.5rem', background: 'rgba(15,23,42,0.62)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }} onClick={() => setSelectedId(null)}>
+        <article onClick={(event) => event.stopPropagation()} style={{ width: 'min(920px, 100%)', maxHeight: '90vh', overflowY: 'auto', borderRadius: '20px', background: 'var(--card-bg)', boxShadow: '0 28px 70px rgba(15,23,42,.32)' }}>
+          <header style={{ position: 'sticky', top: 0, zIndex: 1, padding: '1.5rem 1.75rem', color: '#fff', background: 'linear-gradient(120deg, #111827, #28334b)', display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start' }}>
+            <div><div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><span style={{ padding: '5px 9px', borderRadius: 999, background: selected.severity === 'CRITICAL' ? '#ef4444' : '#f59e0b', fontSize: 11, fontWeight: 800, letterSpacing: '.06em' }}>{selected.severity}</span><span style={{ color: '#cbd5e1', fontSize: 13 }}>{selected.status}</span></div><h2 style={{ margin: '12px 0 4px', fontSize: 'clamp(1.4rem, 3vw, 2rem)' }}>{selected.type}</h2><p style={{ margin: 0, color: '#cbd5e1', fontSize: 13 }}>{selected.id} · Reported {selected.time}</p></div>
+            <button type="button" onClick={() => setSelectedId(null)} aria-label="Close incident details" style={{ display: 'grid', placeItems: 'center', width: 36, height: 36, border: '1px solid rgba(255,255,255,.26)', borderRadius: 10, background: 'rgba(255,255,255,.1)', color: '#fff', cursor: 'pointer' }}><X size={18} /></button>
+          </header>
+          <div style={{ padding: '1.5rem 1.75rem 1.75rem', display: 'grid', gap: '1.25rem' }}>
+            <section style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: '1rem', alignItems: 'center', padding: '1.1rem', border: '1px solid #fecdd3', borderRadius: 14, background: 'linear-gradient(135deg, #fff7f7, var(--card-bg))' }}>
+              <div><div style={{ display: 'flex', gap: 8, alignItems: 'center', color: '#be123c', fontSize: 12, fontWeight: 800, letterSpacing: '.06em' }}><Bot size={16} /> AI INCIDENT SUMMARY</div><p style={{ margin: '8px 0 0', lineHeight: 1.55, color: 'var(--text-secondary)' }}>{selected.summary || 'Awaiting an incident summary from the live conversation.'}</p></div>
+              <button type="button" onClick={() => void dispatchSelected()} style={{ border: 0, borderRadius: 10, padding: '11px 14px', background: 'var(--accent-red)', color: '#fff', fontWeight: 800, whiteSpace: 'nowrap', cursor: 'pointer' }}>Call dispatcher</button>
+            </section>
+            {dispatchStatus && <p role="status" style={{ margin: 0, padding: '10px 12px', borderRadius: 10, color: '#be123c', background: '#fff1f2', fontWeight: 700 }}>{dispatchStatus}</p>}
+            {selected.status === 'Dispatched' && <p style={{ margin: 0, color: '#be123c', fontWeight: 700 }}><AlertTriangle size={16} style={{ verticalAlign: 'middle', marginRight: 6 }} />Handoff recorded. Unit dispatch still requires dispatcher action.</p>}
+            <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
+              {[[MapPin, 'Location', selected.location], [Users, 'Victims', selected.victims ?? 'Unknown'], [AlertTriangle, 'Hazards', selected.hazards?.join(', ') || 'None reported'], [Clock, 'Response units', selected.units.join(', ') || 'Not assigned'], [Bot, 'AI confidence', selected.confidence ? `${Math.round(selected.confidence * 100)}%` : 'Awaiting review']].map(([Icon, label, value]) => { const DetailIcon = Icon as typeof MapPin; return <div key={String(label)} style={{ minWidth: 0, padding: '12px', border: '1px solid var(--border-color)', borderRadius: 12, background: 'var(--bg-secondary)' }}><DetailIcon size={16} color="var(--accent-red)" /><strong style={{ display: 'block', marginTop: 7, fontSize: 11, color: 'var(--text-muted)', letterSpacing: '.05em', textTransform: 'uppercase' }}>{String(label)}</strong><span style={{ display: 'block', marginTop: 3, lineHeight: 1.35, fontSize: 14, color: 'var(--text-primary)' }}>{String(value)}</span></div>; })}
+            </section>
+            <section><div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}><h3 style={{ margin: 0 }}>Conversation transcript</h3><span style={{ color: 'var(--text-muted)', fontSize: 12 }}>{selected.transcript?.length ?? 0} updates</span></div>{selected.transcript?.length ? <div style={{ display: 'grid', gap: 9 }}>{selected.transcript.map((line, index) => <article key={`${line.time}-${index}`} style={{ padding: '11px 13px', borderRadius: 12, background: line.speaker === 'COPILOT_SYS' ? '#fff1f2' : 'var(--bg-secondary)', borderLeft: `3px solid ${line.speaker === 'COPILOT_SYS' ? 'var(--accent-red)' : '#94a3b8'}` }}><strong style={{ fontSize: 12, color: line.speaker === 'COPILOT_SYS' ? '#be123c' : 'var(--text-secondary)' }}>{line.speaker === 'COPILOT_SYS' ? 'DISPATCHER' : 'CALLER'} · {line.time}</strong><p style={{ margin: '5px 0 0', lineHeight: 1.45 }}>{line.text}</p></article>)}</div> : <p style={{ margin: 0, padding: '1rem', borderRadius: 12, background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>Waiting for the live audio stream.</p>}</section>
+            <CctvEvidencePanel incidentId={selected.id} analyses={selected.cctvAnalyses} />
+          </div>
         </article>
       </div>}
     </div>
