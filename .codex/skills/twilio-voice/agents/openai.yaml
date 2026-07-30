@@ -1,0 +1,4 @@
+interface:
+  display_name: "Twilio Voice"
+  short_description: "Implement E-mrg Twilio Voice workflows."
+  default_prompt: "Build a Twilio Voice capability for E-mrg."
