@@ -1,0 +1,4 @@
+interface:
+  display_name: "MongoDB"
+  short_description: "Model and access E-mrg emergency-call data."
+  default_prompt: "Design MongoDB models for an E-mrg feature."

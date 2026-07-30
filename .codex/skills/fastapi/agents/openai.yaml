@@ -1,0 +1,4 @@
+interface:
+  display_name: "FastAPI Backend"
+  short_description: "Build the E-mrg async FastAPI backend."
+  default_prompt: "Implement an E-mrg backend feature with FastAPI."
