@@ -1,10 +1,12 @@
 from datetime import timedelta
 
 from fastapi.testclient import TestClient
+from pydantic import SecretStr
 
 from app.auth.models import Principal
 from app.auth.security import create_access_token
-from app.core.config import settings
+from app.core.config import Settings, settings
+from app.core.dependencies import settings_dependency
 from app.main import app
 from app.routers import cctv
 
@@ -32,9 +34,14 @@ def test_cctv_analysis_uses_mistral_vision_and_returns_saved_evidence(monkeypatc
 
     monkeypatch.setattr(cctv, "MistralCloudProvider", FakeProvider)
     monkeypatch.setattr(cctv.CallEventStore, "publish", record_event)
+    test_settings = Settings(mistral_api_key=SecretStr("test-mistral-key"))
+    app.dependency_overrides[settings_dependency] = lambda: test_settings
     client = TestClient(app)
 
-    response = client.post("/api/v1/incidents/call-123/cctv/analyze", json={"camera_id": "camera_2"}, headers={"Authorization": f"Bearer {_token()}"})
+    try:
+        response = client.post("/api/v1/incidents/call-123/cctv/analyze", json={"camera_id": "camera_2"}, headers={"Authorization": f"Bearer {_token()}"})
+    finally:
+        app.dependency_overrides.pop(settings_dependency, None)
 
     assert response.status_code == 200
     assert response.json()["analysis"]["urgency"] == "critical"
