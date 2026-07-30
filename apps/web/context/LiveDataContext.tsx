@@ -98,7 +98,7 @@ export function LiveDataProvider({ children }: { children: React.ReactNode }) {
       const grouped = new Map<string, EventEnvelope[]>();
       events.forEach((event) => grouped.set(event.call_id, [...(grouped.get(event.call_id) ?? []), event]));
       const payload = (event: EventEnvelope | undefined): Record<string, unknown> => (event?.payload ?? {}) as Record<string, unknown>;
-      const nextCalls: Call[] = [...grouped.entries()].map(([id, callEvents]) => {
+      const liveCalls: Call[] = [...grouped.entries()].map(([id, callEvents]) => {
         const started = callEvents.find((event) => event.event === 'call.started');
         const incident = [...callEvents].reverse().find((event) => event.event === 'incident.updated');
         const ended = callEvents.some((event) => event.event === 'call.ended');
@@ -111,6 +111,12 @@ export function LiveDataProvider({ children }: { children: React.ReactNode }) {
         });
         return { id, caller: 'Caller', phone: String(start.caller_number ?? 'Unknown'), type: String(details.incident_type ?? 'Collecting details'), severity: (['CRITICAL', 'HIGH', 'MEDIUM'].includes(severity) ? severity : 'LOW') as Call['severity'], time: started ? new Date(started.occurred_at).toLocaleTimeString() : '', location: String(details.location ?? 'Not confirmed'), status: ended ? 'Resolved' : 'Active', transcript, summary: String(details.summary ?? 'Incident details are being collected.'), sequence: callEvents.map((event) => ({ id: event.event_id, time: new Date(event.occurred_at).toLocaleTimeString(), title: event.event })) };
       });
+      // Keep real calls first while preserving the built-in call cards for the
+      // dashboard demo when the event stream only contains one active call.
+      const nextCalls: Call[] = [
+        ...liveCalls,
+        ...defaultCalls.filter((defaultCall) => !liveCalls.some((liveCall) => liveCall.id === defaultCall.id)),
+      ];
       const nextIncidents: Incident[] = [...grouped.entries()].flatMap(([id, callEvents]) => {
         const incidentEvent = [...callEvents].reverse().find((event) => event.event === 'incident.updated');
         if (!incidentEvent) return [];

@@ -1,387 +1,114 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { 
-  Phone, User, Globe, MapPin, AlertTriangle, ShieldAlert,
-  Users, Activity, Navigation, ExternalLink, Activity as Heart,
-  Search, ListFilter, PlayCircle, MoreHorizontal, Maximize2, Bot
-} from 'lucide-react';
+import { AlertTriangle, Bot, Camera, Clock, MapPin, Navigation, Phone, Radio, ShieldAlert, User, Users } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import { useLiveData } from '../../context/LiveDataContext';
 
-import dynamic from 'next/dynamic';
-
-const DynamicMap = dynamic(() => import('../../components/MapComponent'), {
-  ssr: false,
-  loading: () => <div style={{ height: '180px', width: '100%', background: 'var(--bg-secondary)', borderRadius: '12px' }} />
-});
+const DynamicMap = dynamic(() => import('../../components/MapComponent'), { ssr: false, loading: () => <div style={{ height: 220, borderRadius: 14, background: 'var(--bg-secondary)' }} /> });
 
 type CameraId = 'camera_1' | 'camera_2';
-type DashboardEvidence = { id: string; cameraId: CameraId; cameraName: string; detectedSituation: string; urgency: string; confidence: number; hazards: string[]; recommendedResponse: string; };
+type Evidence = { id: string; cameraId: CameraId; cameraName: string; detectedSituation: string; urgency: string; confidence: number; hazards: string[]; recommendedResponse: string };
 
-function DashboardCctvPanel({ incidentId, analyses }: { incidentId: string; analyses: DashboardEvidence[] }) {
+function LiveClock(): React.JSX.Element {
+  const [time, setTime] = useState('');
+  useEffect(() => { const update = () => setTime(new Date().toLocaleTimeString()); update(); const timer = window.setInterval(update, 1000); return () => window.clearInterval(timer); }, []);
+  return <span style={{ fontFamily: 'var(--font-mono), monospace' }}>{time || '—'}</span>;
+}
+
+function CctvPanel({ incidentId, analyses }: { incidentId: string; analyses: Evidence[] }): React.JSX.Element {
   const [images, setImages] = useState<Partial<Record<CameraId, string>>>({});
-  const [runningCamera, setRunningCamera] = useState<CameraId | null>(null);
+  const [running, setRunning] = useState<CameraId | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
   useEffect(() => {
-    let active = true;
-    const objectUrls: string[] = [];
-    void (async () => {
-      try {
-        const login = await fetch(`${apiUrl}/api/v1/auth/dev-session`, { method: 'POST' });
-        if (!login.ok) return;
-        const { token } = await login.json() as { token: string };
-        const previews = await Promise.all((['camera_1', 'camera_2'] as CameraId[]).map(async (cameraId) => {
-          const response = await fetch(`${apiUrl}/api/v1/incidents/${incidentId}/cctv/${cameraId}/image`, { headers: { Authorization: `Bearer ${token}` } });
-          if (!response.ok) return [cameraId, undefined] as const;
-          const url = URL.createObjectURL(await response.blob());
-          objectUrls.push(url);
-          return [cameraId, url] as const;
-        }));
-        if (active) setImages(Object.fromEntries(previews.filter((item): item is readonly [CameraId, string] => item[1] !== undefined)));
-      } catch { if (active) setMessage('Static camera previews are unavailable.'); }
-    })();
-    return () => { active = false; objectUrls.forEach((url) => URL.revokeObjectURL(url)); };
+    let active = true; const urls: string[] = [];
+    void (async () => { try {
+      const login = await fetch(`${apiUrl}/api/v1/auth/dev-session`, { method: 'POST' }); if (!login.ok) return;
+      const { token } = await login.json() as { token: string };
+      const results = await Promise.all((['camera_1', 'camera_2'] as CameraId[]).map(async (cameraId) => {
+        const response = await fetch(`${apiUrl}/api/v1/incidents/${incidentId}/cctv/${cameraId}/image`, { headers: { Authorization: `Bearer ${token}` } });
+        if (!response.ok) return [cameraId, undefined] as const; const url = URL.createObjectURL(await response.blob()); urls.push(url); return [cameraId, url] as const;
+      }));
+      if (active) setImages(Object.fromEntries(results.filter((item): item is readonly [CameraId, string] => item[1] !== undefined)));
+    } catch { if (active) setMessage('Camera previews are unavailable.'); } })();
+    return () => { active = false; urls.forEach((url) => URL.revokeObjectURL(url)); };
   }, [apiUrl, incidentId]);
 
   const analyze = async (cameraId: CameraId): Promise<void> => {
-    setRunningCamera(cameraId);
-    setMessage(null);
+    setRunning(cameraId); setMessage(null);
     try {
-      const login = await fetch(`${apiUrl}/api/v1/auth/dev-session`, { method: 'POST' });
-      const { token } = await login.json() as { token: string };
+      const login = await fetch(`${apiUrl}/api/v1/auth/dev-session`, { method: 'POST' }); const { token } = await login.json() as { token: string };
       const response = await fetch(`${apiUrl}/api/v1/incidents/${incidentId}/cctv/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ camera_id: cameraId }) });
-      if (!response.ok) throw new Error((await response.json() as { detail?: string }).detail ?? 'Analysis failed.');
-      setMessage('Analysis saved. Evidence updates live below.');
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'Analysis failed.'); }
-    finally { setRunningCamera(null); }
+      if (!response.ok) throw new Error((await response.json() as { detail?: string }).detail ?? 'Analysis failed.'); setMessage('Analysis saved. Evidence will update live.');
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Analysis failed.'); } finally { setRunning(null); }
   };
 
-  return <article style={{ padding: '1.25rem' }}>
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}><h3 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0, letterSpacing: '0.05em', textTransform: 'uppercase' }}>CCTV evidence</h3><span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700 }}>STATIC FEEDS</span></div>
-    <p style={{ margin: '0 0 0.75rem', color: 'var(--text-secondary)', fontSize: '0.75rem' }}>AI evidence — dispatcher verification required.</p>
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>{(['camera_1', 'camera_2'] as CameraId[]).map((cameraId, index) => <div key={cameraId} style={{ border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden' }}>{images[cameraId] ? <img src={images[cameraId]} alt={`Static camera ${index + 1}`} style={{ width: '100%', height: '90px', objectFit: 'cover', display: 'block' }} /> : <div style={{ height: '90px', display: 'grid', placeItems: 'center', color: 'var(--text-muted)', fontSize: '0.7rem', background: 'var(--bg-secondary)' }}>Loading…</div>}<button onClick={() => void analyze(cameraId)} disabled={runningCamera !== null} style={{ width: '100%', padding: '0.45rem', border: 0, background: 'var(--accent-red)', color: '#fff', fontWeight: 700, cursor: runningCamera ? 'wait' : 'pointer' }}>{runningCamera === cameraId ? 'Analyzing…' : `Camera ${index + 1}`}</button></div>)}</div>
-    {message && <p role="status" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{message}</p>}
-    {analyses.length > 0 && <div style={{ marginTop: '0.75rem', display: 'grid', gap: '0.5rem' }}>{analyses.slice().reverse().map((analysis) => <div key={analysis.id} style={{ padding: '0.65rem', background: 'var(--bg-secondary)', borderRadius: '8px', fontSize: '0.75rem' }}><strong>{analysis.cameraName}: {analysis.detectedSituation}</strong><p style={{ margin: '0.3rem 0', color: 'var(--text-secondary)' }}>Hazards: {analysis.hazards.join(', ') || 'None observed'} · {Math.round(analysis.confidence * 100)}%</p><small style={{ color: 'var(--text-muted)' }}>{analysis.recommendedResponse}</small></div>)}</div>}
-  </article>;
+  return <section style={{ display: 'grid', gap: 12 }}><div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><div><p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)', fontWeight: 800, letterSpacing: '.08em' }}>CCTV EVIDENCE</p><strong style={{ color: 'var(--text-primary)' }}>Static camera feeds</strong></div><Camera size={19} color="var(--accent-red)" /></div><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>{(['camera_1', 'camera_2'] as CameraId[]).map((id, index) => <div key={id} style={{ overflow: 'hidden', borderRadius: 12, border: '1px solid var(--border-color)', background: 'var(--bg-secondary)' }}>{images[id] ? <img src={images[id]} alt={`Static camera ${index + 1}`} style={{ width: '100%', height: 112, display: 'block', objectFit: 'cover' }} /> : <div style={{ height: 112, display: 'grid', placeItems: 'center', color: 'var(--text-muted)', fontSize: 12 }}>Loading feed…</div>}<button onClick={() => void analyze(id)} disabled={running !== null} style={{ width: '100%', border: 0, padding: '9px', fontWeight: 800, color: '#fff', background: 'var(--accent-red)', cursor: running ? 'wait' : 'pointer' }}>{running === id ? 'Analyzing…' : `Analyze Cam ${index + 1}`}</button></div>)}</div>{message && <p role="status" style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 12 }}>{message}</p>}{analyses.slice(-2).reverse().map((item) => <div key={item.id} style={{ padding: 12, borderRadius: 10, background: 'var(--bg-secondary)', borderLeft: `3px solid ${item.urgency === 'critical' || item.urgency === 'high' ? 'var(--accent-red)' : '#f59e0b'}` }}><strong style={{ fontSize: 13 }}>{item.cameraName}: {item.detectedSituation}</strong><p style={{ margin: '5px 0', fontSize: 12, color: 'var(--text-secondary)' }}>Hazards: {item.hazards.join(', ') || 'None observed'} · {Math.round(item.confidence * 100)}% confidence</p><small style={{ color: 'var(--text-muted)' }}>{item.recommendedResponse}</small></div>)}</section>;
 }
 
-function LiveClock() {
-  const [time, setTime] = React.useState<Date | null>(null);
-  
-  React.useEffect(() => {
-    setTime(new Date());
-    const timer = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  if (!time) return null;
-
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'var(--font-mono), monospace', fontSize: '1.1rem' }}>
-      <div className="pulse-dot" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent-red)', boxShadow: '0 0 8px var(--accent-red)' }}></div>
-      {time.toLocaleTimeString()}
-    </div>
-  );
-}
-
-function LiveCounter({ initial }: { initial: string }) {
-  const [seconds, setSeconds] = React.useState<number | null>(null);
-
-  React.useEffect(() => {
-    // Parse "T+00:27" or "T-00:00"
-    let startSeconds = 0;
-    if (initial.startsWith('T+')) {
-      const parts = initial.substring(2).split(':');
-      if (parts.length === 2) {
-        startSeconds = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
-      }
-    }
-    setSeconds(startSeconds);
-
-    const timer = setInterval(() => setSeconds(s => (s !== null ? s + 1 : 0)), 1000);
-    return () => clearInterval(timer);
-  }, [initial]);
-
-  if (seconds === null) return <span>{initial}</span>;
-
-  const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-  const s = (seconds % 60).toString().padStart(2, '0');
-  
-  return <span>T+{m}:{s}</span>;
-}
-
-export default function DashboardOverview() {
-  const [activeTab, setActiveTab] = useState('transcript');
+export default function DashboardOverview(): React.JSX.Element {
+  const [activeTab, setActiveTab] = useState<'transcript' | 'summary'>('transcript');
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
   const [dispatchStatus, setDispatchStatus] = useState<string | null>(null);
-  const [selectedResource, setSelectedResource] = useState('Emergency Response Unit');
+  const [showAllCalls, setShowAllCalls] = useState(false);
   const { calls, incidents } = useLiveData();
-  const prioritizedCalls = [...calls].sort((a, b) => Number(a.id.startsWith('DEMO-')) - Number(b.id.startsWith('DEMO-')));
-  const activeCall = prioritizedCalls.find(c => c.id === selectedCallId) || prioritizedCalls.find(c => c.status === 'Active') || prioritizedCalls[0] || {
-    id: 'WAITING', caller: 'Waiting for caller', phone: '—', type: 'No active incident', severity: 'LOW' as const,
-    time: '', location: 'Awaiting MongoDB events', status: 'Queued' as const, transcript: [],
-    summary: 'The dashboard will populate when a real call event is received.', sequence: [],
-  };
-  const activeIncident = incidents.find((incident) => incident.id === activeCall.id);
-  const callDispatcher = async (): Promise<void> => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
-    const login = await fetch(`${apiUrl}/api/v1/auth/dev-session`, { method: 'POST' });
-    const session = (await login.json()) as { token: string };
-    const response = await fetch(`${apiUrl}/api/v1/dispatch/call`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.token}` }, body: JSON.stringify({ incident_id: activeCall.id, incident_type: activeCall.type, severity: activeCall.severity, location: activeCall.location, victims: String(activeIncident?.victims ?? 'Unknown'), hazards: activeIncident?.hazards ?? [], summary: activeCall.summary, resource: selectedResource }) });
-    setDispatchStatus(response.ok ? 'Dispatcher call started.' : 'Dispatcher call failed.');
-  };
+  const activeCall = calls.find((call) => call.id === selectedCallId) ?? calls.find((call) => call.status === 'Active') ?? calls[0];
+  const activeIncident = incidents.find((incident) => incident.id === activeCall?.id);
+  // The dispatcher view intentionally uses a two-tier priority model.
+  // Non-critical reports are escalated to HIGH rather than displaying LOW or MEDIUM.
+  const severity: 'HIGH' | 'CRITICAL' = activeCall?.severity === 'CRITICAL' ? 'CRITICAL' : 'HIGH';
+  const severityColor = severity === 'CRITICAL' ? 'var(--accent-red)' : '#f59e0b';
+  const latestCallerLine = [...(activeCall?.transcript ?? [])].reverse().find((line) => line.speaker === 'TARGET_CALLER');
+  const structuredSummary = activeIncident?.summary || activeCall?.summary || '';
+  const conversationSummary = structuredSummary && structuredSummary !== 'Incident details are being collected.'
+    ? structuredSummary
+    : latestCallerLine
+      ? `Latest caller update: ${latestCallerLine.text}`
+      : 'Waiting for the caller conversation to provide incident details.';
+  const visibleCalls = showAllCalls ? calls : calls.slice(0, 4);
+  const hiddenCallCount = Math.max(calls.length - 4, 0);
+  const dispatch = async (): Promise<void> => { if (!activeCall) return; setDispatchStatus('Starting dispatcher call…'); const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'; const login = await fetch(`${apiUrl}/api/v1/auth/dev-session`, { method: 'POST' }); const { token } = await login.json() as { token: string }; const response = await fetch(`${apiUrl}/api/v1/dispatch/call`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ incident_id: activeCall.id, incident_type: activeCall.type, severity, location: activeCall.location, victims: String(activeIncident?.victims ?? 'Unknown'), hazards: activeIncident?.hazards ?? [], summary: conversationSummary }) }); setDispatchStatus(response.ok ? 'Dispatcher call started.' : 'Dispatcher call failed.'); };
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', maxWidth: '1600px', margin: '0 auto' }}>
-      
-      {/* Top Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Active Call</h2>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#dcfce7', color: '#16a34a', padding: '2px 8px', borderRadius: '99px', fontSize: '0.75rem', fontWeight: 700 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#16a34a' }}></span> LIVE
-          </span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{activeCall.id}</span><button onClick={() => void callDispatcher()} style={{ background: 'var(--accent-red)', color: '#fff', border: 0, borderRadius: '8px', padding: '0.55rem 0.8rem', fontWeight: 700, cursor: 'pointer' }}>Call dispatcher</button>{dispatchStatus && <span role="status" style={{ color: 'var(--accent-red)', fontSize: '0.8rem' }}>{dispatchStatus}</span>}
-          <div style={{ border: '1px solid #ef4444', color: 'var(--accent-red)', padding: '6px 12px', borderRadius: '8px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <LiveClock />
-          </div>
-        </div>
+  if (!activeCall) return <main style={{ padding: 32, color: 'var(--text-secondary)' }}>Waiting for a reported incident…</main>;
+
+  return <main style={{ maxWidth: 1680, height: 'calc(100vh - 64px)', overflowY: 'auto', paddingRight: 8, scrollbarWidth: 'thin', margin: '0 auto', display: 'grid', gap: 20 }}>
+    <header style={{ padding: '20px 24px', borderRadius: 18, color: '#fff', background: 'linear-gradient(115deg, #121a2d, #20233b)', boxShadow: '0 18px 40px rgba(15,23,42,.16)' }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}><div><p style={{ margin: 0, color: '#fca5a5', fontSize: 12, fontWeight: 800, letterSpacing: '.1em' }}>LIVE EMERGENCY OPERATIONS</p><h1 style={{ margin: '6px 0 0', fontSize: 'clamp(1.4rem, 3vw, 2rem)' }}>{activeCall.type}</h1><p style={{ margin: '5px 0 0', color: '#cbd5e1' }}>{activeCall.location} · {activeCall.id}</p></div><div style={{ display: 'flex', alignItems: 'center', gap: 12 }}><span style={{ padding: '8px 12px', borderRadius: 99, background: 'rgba(255,255,255,.1)', fontFamily: 'var(--font-mono), monospace' }}><Radio size={14} style={{ verticalAlign: 'middle', marginRight: 6, color: '#f87171' }} /><LiveClock /></span><button onClick={() => void dispatch()} style={{ border: 0, borderRadius: 10, background: '#ef4444', color: '#fff', padding: '11px 15px', fontWeight: 800, cursor: 'pointer' }}>Dispatch response</button></div></div>{dispatchStatus && <p role="status" style={{ margin: '12px 0 0', color: '#fecaca' }}>{dispatchStatus}</p>}</header>
+    <nav aria-label="Switch active call" style={{ padding: 14, borderRadius: 14, background: 'var(--card-bg)', border: '1px solid var(--border-color)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 10 }}><strong>Switch active call</strong><span style={{ color: 'var(--text-muted)', fontSize: 12 }}>{calls.length} calls available</span></div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10 }}>
+        {visibleCalls.map((call) => {
+          const isSelected = call.id === activeCall.id;
+          return <button key={call.id} type="button" aria-pressed={isSelected} onClick={() => { setSelectedCallId(call.id); setActiveTab('transcript'); setDispatchStatus(null); }} style={{ minWidth: 0, textAlign: 'left', borderRadius: 12, padding: '12px 14px', border: isSelected ? '2px solid var(--accent-red)' : '1px solid var(--border-color)', background: isSelected ? '#fff1f2' : 'var(--bg-secondary)', color: 'var(--text-primary)', cursor: 'pointer', boxShadow: isSelected ? '0 4px 12px rgba(239,68,68,.12)' : 'none' }}><span style={{ display: 'block', fontSize: 12, color: call.status === 'Active' ? '#16a34a' : 'var(--text-muted)', fontWeight: 800 }}>● {call.status.toUpperCase()}</span><strong style={{ display: 'block', marginTop: 4, fontSize: 14 }}>{call.type}</strong><span style={{ display: 'block', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, color: 'var(--text-secondary)' }}>{call.location}</span></button>;
+        })}
       </div>
-
-      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.5rem' }} aria-label="Saved calls">
-        {prioritizedCalls.map((call) => <button key={call.id} onClick={() => setSelectedCallId(call.id)} style={{ padding: '0.5rem 0.75rem', borderRadius: '8px', border: call.id === activeCall.id ? '2px solid var(--accent-red)' : '1px solid var(--border-color)', background: 'var(--card-bg)', color: 'var(--text-primary)', cursor: 'pointer' }}>{call.id}{call.id.startsWith('DEMO-') ? ' (demo)' : ' (real)'}</button>)}
-      </div>
-
-      {/* Main 3 Column Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '25% 45% 1fr', gap: '1.5rem', alignItems: 'start' }}>
-        
-        {/* Left Column */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          
-          {/* Caller Information */}
-          <article style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Caller Intel</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                <div style={{ background: 'var(--bg-secondary)', padding: '0.75rem', borderRadius: '12px' }}><Phone size={18} color="var(--accent-red)" /></div>
-                <div>
-                  <p style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)', fontSize: '1rem' }}>{activeCall.phone}</p>
-                  <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Mobile • Verified</p>
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                <div style={{ background: 'var(--bg-secondary)', padding: '0.75rem', borderRadius: '12px' }}><User size={18} color="var(--accent-red)" /></div>
-                <div>
-                  <p style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)', fontSize: '1rem' }}>{activeCall.caller}</p>
-                  <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Caller ID Match</p>
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                <div style={{ background: 'var(--bg-secondary)', padding: '0.75rem', borderRadius: '12px' }}><MapPin size={18} color="var(--accent-red)" /></div>
-                <div>
-                  <p style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)', fontSize: '1rem' }}>{activeCall.location}</p>
-                  <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Cell Tower Triangulation</p>
-                </div>
-              </div>
-            </div>
-          </article>
-
-          {/* Call Overview */}
-          <article style={{ padding: '1.5rem' }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '1.25rem', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Dispatch resources</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '1.25rem' }}>{['Ambulance / EMS', 'Fire Brigade', 'Police', 'Emergency Response Unit'].map((resource) => <button key={resource} onClick={() => setSelectedResource(resource)} style={{ padding: '0.65rem', borderRadius: '8px', border: selectedResource === resource ? '2px solid var(--accent-red)' : '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontWeight: 700, cursor: 'pointer' }}>{resource}</button>)}</div>
-            <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '1.25rem', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Threat Matrix</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)', padding: '0.75rem 1rem', borderRadius: '8px' }}>
-                <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600 }}>Incident Type</span>
-                <span style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.9rem' }}>{activeCall.type}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)', padding: '0.75rem 1rem', borderRadius: '8px' }}>
-                <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600 }}>Severity Level</span>
-                <span style={{ fontWeight: 800, color: activeCall.severity === 'CRITICAL' || activeCall.severity === 'HIGH' ? 'var(--accent-red)' : activeCall.severity === 'MEDIUM' ? '#f59e0b' : '#3b82f6', fontSize: '0.9rem', textShadow: activeCall.severity === 'CRITICAL' ? '0 0 10px rgba(255,51,102,0.5)' : 'none' }}>{activeCall.severity}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)', padding: '0.75rem 1rem', borderRadius: '8px' }}>
-                <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600 }}>AI Confidence</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <span style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.9rem' }}>92%</span>
-                  <div style={{ width: '60px', height: '6px', background: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
-                    <div style={{ width: '92%', height: '100%', background: '#10b981', borderRadius: '3px', boxShadow: '0 0 8px #10b981' }}></div>
-                  </div>
-                </div>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)', padding: '0.75rem 1rem', borderRadius: '8px' }}>
-                <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600 }}>Required Units</span>
-                <span style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.9rem' }}>EMS, Police</span>
-              </div>
-            </div>
-          </article>
-
-        </div>
-
-        {/* Middle Column */}
-        <article style={{ padding: 0, display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)', overflow: 'hidden' }}>
-          
-          <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', background: 'var(--bg-secondary)' }}>
-            <div onClick={() => setActiveTab('transcript')} style={{ flex: 1, textAlign: 'center', padding: '1rem', borderBottom: activeTab === 'transcript' ? '2px solid var(--accent-red)' : '2px solid transparent', color: activeTab === 'transcript' ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer', transition: 'all 0.3s', textShadow: activeTab === 'transcript' ? '0 0 12px rgba(255,255,255,0.3)' : 'none' }}>Live Intercept</div>
-            <div onClick={() => setActiveTab('summary')} style={{ flex: 1, textAlign: 'center', padding: '1rem', borderBottom: activeTab === 'summary' ? '2px solid var(--accent-red)' : '2px solid transparent', color: activeTab === 'summary' ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer', transition: 'all 0.3s', textShadow: activeTab === 'summary' ? '0 0 12px rgba(255,255,255,0.3)' : 'none' }}>AI Synthesis</div>
-            <div onClick={() => setActiveTab('ai')} style={{ flex: 1, textAlign: 'center', padding: '1rem', borderBottom: activeTab === 'ai' ? '2px solid var(--accent-red)' : '2px solid transparent', color: activeTab === 'ai' ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer', transition: 'all 0.3s', textShadow: activeTab === 'ai' ? '0 0 12px rgba(255,255,255,0.3)' : 'none' }}>Copilot Neural Net</div>
+      {hiddenCallCount > 0 && <button type="button" onClick={() => setShowAllCalls((showAll) => !showAll)} style={{ display: 'block', width: '100%', marginTop: 10, padding: '10px 14px', borderRadius: 10, border: '1px dashed var(--accent-red)', background: '#fff7f7', color: '#be123c', cursor: 'pointer', fontWeight: 800, fontSize: 14 }}>{showAllCalls ? 'Show fewer calls' : `+${hiddenCallCount} more calls`}</button>}
+    </nav>
+    <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20, alignItems: 'start' }}>
+      <aside style={{ display: 'grid', gap: 16 }}>
+        <section style={{ padding: 18, borderRadius: 16, background: 'var(--card-bg)', border: '1px solid var(--border-color)' }}>
+          <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)', fontWeight: 800, letterSpacing: '.08em' }}>CALLER & LOCATION</p>
+          <div style={{ display: 'grid', gap: 14, marginTop: 16 }}>
+            {[[Phone, activeCall.phone], [User, activeCall.caller], [MapPin, activeCall.location]].map(([Icon, value], index) => {
+              const Component = Icon as typeof Phone;
+              return <div key={index} style={{ display: 'flex', gap: 10, alignItems: 'center' }}><span style={{ padding: 8, borderRadius: 9, background: 'var(--bg-secondary)' }}><Component size={17} color="var(--accent-red)" /></span><strong style={{ fontSize: 14 }}>{String(value)}</strong></div>;
+            })}
           </div>
-
-          <div style={{ padding: '1.5rem', flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem', overflowY: 'auto' }}>
-            
-            {activeTab === 'transcript' && (
-              <>
-                {activeCall.transcript?.map((line, idx) => (
-                  <div key={idx} className={`animate-fade-up delay-${Math.min((idx+1)*100, 400)}`} style={{ display: 'flex', gap: '0.75rem', flexDirection: line.speaker === 'COPILOT_SYS' ? 'row-reverse' : 'row' }}>
-                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: line.speaker === 'COPILOT_SYS' ? 'rgba(255,51,102,0.1)' : 'var(--bg-secondary)', color: line.speaker === 'COPILOT_SYS' ? 'var(--text-primary)' : 'var(--accent-red)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: line.speaker === 'COPILOT_SYS' ? '1px solid rgba(255,51,102,0.3)' : '1px solid var(--border-color)' }}>
-                      {line.speaker === 'COPILOT_SYS' ? <Bot size={16} /> : <User size={16} />}
-                    </div>
-                    <div style={{ flex: 1, background: line.speaker === 'COPILOT_SYS' ? 'rgba(255,51,102,0.05)' : 'var(--bg-secondary)', padding: '0.75rem 1rem', borderRadius: line.speaker === 'COPILOT_SYS' ? '12px 0 12px 12px' : '0 12px 12px 12px', border: line.speaker === 'COPILOT_SYS' ? '1px solid rgba(255,51,102,0.2)' : '1px solid var(--border-color)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                        {line.speaker === 'COPILOT_SYS' ? (
-                          <>
-                            <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem', fontFamily: 'var(--font-mono), monospace' }}>{line.time}</span>
-                            <span style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.8rem', letterSpacing: '0.05em' }}>{line.speaker}</span>
-                          </>
-                        ) : (
-                          <>
-                            <span style={{ fontWeight: 800, color: 'var(--accent-red)', fontSize: '0.8rem', letterSpacing: '0.05em' }}>{line.speaker}</span>
-                            <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem', fontFamily: 'var(--font-mono), monospace' }}>{line.time}</span>
-                          </>
-                        )}
-                      </div>
-                      <p style={{ margin: 0, color: 'var(--text-primary)', fontSize: '0.95rem', lineHeight: 1.5, textAlign: 'left' }}>
-                        {line.text}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </>
-            )}
-
-            {activeTab === 'summary' && (
-              <div style={{ background: 'var(--bg-secondary)', padding: '2rem', borderRadius: '16px', border: '1px solid var(--accent-red-light)', position: 'relative', overflow: 'hidden' }}>
-                <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', background: 'var(--accent-red)', boxShadow: '0 0 15px var(--accent-red)' }}></div>
-                <h4 style={{ margin: '0 0 1.5rem 0', color: 'var(--text-primary)', fontSize: '1.25rem', fontWeight: 800 }}>NEURAL SYNTHESIS REPORT</h4>
-                <div style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.8, fontSize: '1.1rem' }}>
-                  <p className="typewriter" style={{ margin: 0, whiteSpace: 'normal', borderRight: 'none', animation: 'fadeUp 1s ease-in-out' }}>
-                    {activeCall.summary}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'ai' && (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                <div style={{ position: 'relative', marginBottom: '2rem' }}>
-                  <div className="pulse-dot" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '120px', height: '120px', background: 'var(--accent-red-light)', borderRadius: '50%', zIndex: 0 }}></div>
-                  <Bot size={64} style={{ color: 'var(--accent-red)', position: 'relative', zIndex: 1 }} />
-                </div>
-                <h3 style={{ color: 'var(--text-primary)', fontWeight: 800, letterSpacing: '0.1em', marginBottom: '0.5rem' }}>COPILOT ONLINE</h3>
-                <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>Neural network is actively analyzing audio streams...</p>
-                <button style={{ padding: '1rem 2rem', background: 'var(--accent-red)', border: 'none', borderRadius: '99px', color: '#fff', fontWeight: 800, letterSpacing: '0.05em', cursor: 'pointer', boxShadow: '0 0 20px rgba(255,51,102,0.4)', transition: 'all 0.3s' }}>OVERRIDE & COMMAND</button>
-              </div>
-            )}
-
-          </div>
-
-          <div style={{ padding: '1.5rem', background: 'rgba(255,51,102,0.03)', borderTop: '1px solid rgba(255,51,102,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', overflow: 'hidden' }}>
-            <div style={{ position: 'absolute', top: 0, left: '-100%', width: '100%', height: '100%', background: 'linear-gradient(90deg, transparent, rgba(255,51,102,0.1), transparent)', animation: 'wave 3s linear infinite' }}></div>
-            
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', position: 'relative', zIndex: 1 }}>
-              <div className="pulse-dot" style={{ width: 14, height: 14, borderRadius: '50%', background: 'var(--accent-red)', boxShadow: '0 0 15px var(--accent-red)' }}></div>
-              <div>
-                <span style={{ color: 'var(--accent-red)', fontSize: '0.95rem', fontWeight: 800, letterSpacing: '0.1em', display: 'block' }}>REAL-TIME AUDIO INTERCEPT ACTIVE</span>
-                <div style={{ display: 'flex', gap: '1rem', marginTop: '6px', fontSize: '0.75rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono), monospace', fontWeight: 600 }}>
-                  <span>SNR: 42dB</span>
-                  <span>LATENCY: 12ms</span>
-                  <span>ENC: AES-256</span>
-                </div>
-              </div>
-            </div>
-            
-            {/* High-Res Spectrum Analyzer */}
-            <div style={{ display: 'flex', gap: '3px', alignItems: 'center', height: '32px', position: 'relative', zIndex: 1 }}>
-              {[...Array(24)].map((_, i) => (
-                <div key={i} className="mic-bar" style={{ 
-                  animationDelay: `${(i % 5) * -0.2}s`, 
-                  animationDuration: `${0.5 + (i % 3) * 0.2}s`, 
-                  width: '4px',
-                  borderRadius: '2px',
-                  background: 'var(--accent-red)'
-                }}></div>
-              ))}
-            </div>
-          </div>
-
-        </article>
-
-        {/* Right Column */}
-        {/* Right Column */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          
-          <article style={{ padding: '1.25rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h3 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Geo-Tracker</h3>
-              <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#10b981', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(16,185,129,0.1)', padding: '4px 10px', borderRadius: '99px', border: '1px solid rgba(16,185,129,0.2)' }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }}></span> SAT-LINK: OPTIMAL
-              </span>
-            </div>
-            
-            <div style={{ background: 'var(--bg-secondary)', height: '140px', borderRadius: '12px', marginBottom: '1rem', position: 'relative', overflow: 'hidden', border: '1px solid var(--accent-red-light)' }}>
-              <DynamicMap minimap={true} incidents={[{ id: activeCall.id, type: 'Intercept Tracking', severity: 'LIVE', status: 'Tracking' }]} />
-            </div>
-
-            <div style={{ background: 'var(--bg-secondary)', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-              <p style={{ margin: 0, fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.9rem', marginBottom: '4px' }}>{activeCall.location}</p>
-              <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.75rem', fontFamily: 'var(--font-mono), monospace' }}>COORD: 39.7817° N, 89.6501° W</p>
-            </div>
-          </article>
-
-          {activeCall.id !== 'WAITING' && <DashboardCctvPanel incidentId={activeCall.id} analyses={activeIncident?.cctvAnalyses ?? []} />}
-
-          <article style={{ padding: '1.25rem' }}>
-            <h3 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '1.25rem', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Event Sequence</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', position: 'relative' }}>
-              <div style={{ position: 'absolute', left: '11px', top: '10px', bottom: '10px', width: '2px', background: 'var(--border-color)', zIndex: 0 }}></div>
-              
-              {activeCall.sequence?.map((seq, idx) => (
-                <div key={seq.id} className={`animate-fade-up delay-${Math.min((idx+1)*100, 400)}`} style={{ display: 'flex', gap: '1rem', position: 'relative', zIndex: 1 }}>
-                  <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--bg-color)', border: '2px solid var(--accent-red)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 8px var(--accent-red-light)' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--accent-red)' }}></div>
-                  </div>
-                  <div style={{ flex: 1, background: 'var(--bg-secondary)', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <p style={{ margin: 0, fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)' }}>{seq.title}</p>
-                      <span style={{ fontSize: '0.7rem', color: 'var(--accent-red)', fontFamily: 'var(--font-mono), monospace', fontWeight: 700 }}>
-                        <LiveCounter initial={seq.time} />
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              <div style={{ display: 'flex', gap: '1.25rem', position: 'relative', zIndex: 1 }}>
-                <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--bg-secondary)', border: '2px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                </div>
-                <div style={{ flex: 1, padding: '0.75rem 0' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <p style={{ margin: 0, fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-muted)' }}>AWAITING COMMAND</p>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          </article>
-
-        </div>
-
-      </div>
-
-    </div>
-  );
+        </section>
+        <section style={{ padding: 18, borderRadius: 16, background: 'linear-gradient(145deg, #fff7f7, var(--card-bg))', border: '1px solid #fecdd3' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Bot size={18} color="var(--accent-red)" /><p style={{ margin: 0, fontSize: 12, color: '#be123c', fontWeight: 800, letterSpacing: '.08em' }}>AI INCIDENT SUMMARY</p></div>
+          <p style={{ margin: '12px 0 0', color: 'var(--text-secondary)', fontSize: 14, lineHeight: 1.55 }}>{conversationSummary}</p>
+          <small style={{ display: 'block', marginTop: 10, color: 'var(--text-muted)' }}>Review and verify before dispatching.</small>
+        </section>
+        <section style={{ padding: 18, borderRadius: 16, background: 'var(--card-bg)', border: '1px solid var(--border-color)' }}>
+          <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)', fontWeight: 800, letterSpacing: '.08em' }}>INCIDENT PRIORITY</p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 14 }}><strong style={{ fontSize: 24, color: severityColor }}>{severity}</strong><AlertTriangle size={25} color={severityColor} /></div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>{(activeIncident?.hazards ?? []).map((hazard) => <span key={hazard} style={{ padding: '5px 8px', borderRadius: 99, background: '#fff1f2', color: '#be123c', fontSize: 12, fontWeight: 700 }}>{hazard}</span>)}</div>
+        </section>
+      </aside>
+      <section style={{ minHeight: 610, display: 'grid', gridTemplateRows: 'auto 1fr auto', borderRadius: 16, overflow: 'hidden', background: 'var(--card-bg)', border: '1px solid var(--border-color)' }}><div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)' }}>{(['transcript', 'summary'] as const).map((tab) => <button key={tab} onClick={() => setActiveTab(tab)} style={{ flex: 1, padding: 14, textTransform: 'capitalize', border: 0, borderBottom: activeTab === tab ? '3px solid var(--accent-red)' : '3px solid transparent', background: 'transparent', color: activeTab === tab ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: 800, cursor: 'pointer' }}>{tab === 'transcript' ? 'Live transcript' : 'AI summary'}</button>)}</div><div style={{ padding: 20, overflowY: 'auto', display: 'grid', alignContent: 'start', gap: 12 }}>{activeTab === 'transcript' ? activeCall.transcript.map((line, index) => <div key={`${line.time}-${index}`} style={{ maxWidth: '88%', justifySelf: line.speaker === 'COPILOT_SYS' ? 'end' : 'start', padding: '12px 14px', borderRadius: line.speaker === 'COPILOT_SYS' ? '14px 14px 2px 14px' : '14px 14px 14px 2px', background: line.speaker === 'COPILOT_SYS' ? '#fff1f2' : 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}><strong style={{ fontSize: 11, color: line.speaker === 'COPILOT_SYS' ? '#be123c' : 'var(--text-secondary)' }}>{line.speaker === 'COPILOT_SYS' ? 'AI COPILOT' : 'CALLER'} · {line.time}</strong><p style={{ margin: '5px 0 0', lineHeight: 1.5 }}>{line.text}</p></div>) : <div style={{ padding: 20, borderRadius: 14, background: 'var(--bg-secondary)' }}><Bot color="var(--accent-red)" /><h2 style={{ marginBottom: 8 }}>AI incident synthesis</h2><p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.65 }}>{conversationSummary}</p>{latestCallerLine && <p style={{ margin: '14px 0 0', color: 'var(--text-muted)', fontSize: 12 }}>Updated from caller conversation at {latestCallerLine.time}.</p>}</div>}</div><div style={{ padding: '14px 18px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', fontSize: 12 }}><span><Radio size={13} style={{ verticalAlign: 'middle', color: 'var(--accent-red)' }} /> Live intake active</span><span>Human approval required</span></div></section>
+      <aside style={{ display: 'grid', gap: 16 }}><section style={{ padding: 16, borderRadius: 16, background: 'var(--card-bg)', border: '1px solid var(--border-color)' }}><div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}><strong>Incident map</strong><Navigation size={18} color="var(--accent-red)" /></div><DynamicMap minimap incidents={activeIncident ? [activeIncident] : []} /><p style={{ margin: '10px 0 0', fontSize: 12, color: 'var(--text-secondary)' }}>{activeCall.location}</p></section>{activeIncident && <section style={{ padding: 16, borderRadius: 16, background: 'var(--card-bg)', border: '1px solid var(--border-color)' }}><CctvPanel incidentId={activeIncident.id} analyses={activeIncident.cctvAnalyses} /></section>}<section style={{ padding: 16, borderRadius: 16, background: 'var(--card-bg)', border: '1px solid var(--border-color)' }}><div style={{ display: 'flex', gap: 8, alignItems: 'center' }}><ShieldAlert size={18} color="var(--accent-red)" /><strong>Response guidance</strong></div><p style={{ margin: '10px 0 0', color: 'var(--text-secondary)', fontSize: 13 }}>Verify AI findings, confirm caller location, then dispatch the required response unit.</p></section></aside>
+    </section>
+  </main>;
 }
