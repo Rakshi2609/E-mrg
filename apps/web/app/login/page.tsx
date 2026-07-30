@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 const SESSION_KEY = 'emrg_dispatcher_token';
 
-export default function LoginPage(): React.JSX.Element {
+function LoginForm(): React.JSX.Element {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [username, setUsername] = useState('');
@@ -41,4 +41,8 @@ export default function LoginPage(): React.JSX.Element {
       <p style={{ margin: '1rem 0 0', color: 'var(--text-muted)', fontSize: '0.75rem' }}>Hackathon demo access only.</p>
     </form>
   </main>;
+}
+
+export default function LoginPage(): React.JSX.Element {
+  return <Suspense fallback={null}><LoginForm /></Suspense>;
 }
