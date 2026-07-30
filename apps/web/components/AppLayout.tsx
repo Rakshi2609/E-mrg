@@ -69,7 +69,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
         {/* Navigation */}
         <div style={{ padding: '1.25rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.25rem', flex: 1, overflowY: 'auto' }} onClick={closeMobileMenu}>
-          <NavItem href="/dashboard" icon={<PhoneCall size={18} />} label="Active Calls" active={pathname === '/dashboard'} badge={calls.filter(c => c.status === 'Active').length.toString()} />
+          <NavItem href="/dashboard" icon={<PhoneCall size={18} />} label="Active Calls" active={pathname === '/dashboard'} badge={calls.length.toString()} />
           <NavItem href="/queue" icon={<Users size={18} />} label="Call Queue" active={pathname === '/queue'} badge={queuedCount.toString()} badgeGray />
           <NavItem href="/incidents" icon={<AlertCircle size={18} />} label="Incidents" active={pathname === '/incidents'} />
           <NavItem href="/map" icon={<Map size={18} />} label="Map View" active={pathname === '/map'} />
